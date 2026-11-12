@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ModusWcAlert, ModusWcToast } from '@trimble-oss/moduswebcomponents-react';
 import Header from './components/Header';
 import HeroProgress from './components/HeroProgress';
@@ -8,16 +8,22 @@ import ProcessAnalytics from './components/ProcessAnalytics';
 import DetailModal from './components/DetailModal';
 import { initialWorkflowData } from './data/initialData';
 
+const TOAST_META = {
+  success: { variant: 'success', title: 'Success' },
+  warning: { variant: 'warning', title: 'Notice' },
+  error: { variant: 'error', title: 'Error' },
+  info: { variant: 'info', title: 'Info' },
+};
+
 export default function App() {
   const [items, setItems] = useState(initialWorkflowData);
   const [activeTab, setActiveTab] = useState('overview');
-  const [isLive, setIsLive] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(new Date().toISOString());
-  const [executionId, setExecutionId] = useState('10456638');
   const [autoRefresh, setAutoRefresh] = useState('30s');
   const [selectedControl, setSelectedControl] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const syncInFlightRef = useRef(false);
 
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -29,33 +35,73 @@ export default function App() {
 
   const fetchLiveData = useCallback(
     async (isManual = false) => {
+      if (syncInFlightRef.current) return;
+      syncInFlightRef.current = true;
       setIsSyncing(true);
       try {
         const res = await fetch('/api/live-data');
-        if (res.ok) {
-          const json = await res.json();
-          if (json.data && json.data.length > 0) {
-            setItems(json.data);
-            setIsLive(Boolean(json.live !== false));
-            setLastSyncTime(json.timestamp || new Date().toISOString());
-            if (json.executionId) setExecutionId(json.executionId);
-            if (isManual) {
-              const completed = json.data.filter((it) => it.isCompleted).length;
+        const json = await res.json().catch(() => null);
+
+        if (res.ok && json?.data?.length > 0) {
+          setItems(json.data);
+          setLastSyncTime(json.timestamp || new Date().toISOString());
+
+          if (isManual) {
+            const completed =
+              json.completedCount ??
+              json.data.filter((it) => it.isCompleted).length;
+            const source = json.source || 'unknown';
+
+            if (json.live && source === 'n8n_webhook_production') {
               showToast(
-                `Synced ${json.data.length} controls! (${completed} completed with ticket)`,
+                `Synced ${json.data.length} controls (${completed} with ticket)`,
                 'success'
+              );
+            } else if (source === 'trimble_n8n_executions_api') {
+              showToast(
+                json.message ||
+                  'Showing last workflow run (not live webhook)',
+                'warning'
+              );
+            } else if (
+              source === 'cached_snapshot' ||
+              source === 'bundled_initial_data'
+            ) {
+              showToast(
+                json.message ||
+                  'Using offline snapshot (live sync unavailable)',
+                'warning'
+              );
+            } else {
+              showToast(
+                json.message ||
+                  `Synced ${json.data.length} controls from ${source}`,
+                json.live ? 'success' : 'warning'
               );
             }
           }
-        } else {
-          setIsLive(false);
-          if (isManual) showToast('Using cached snapshot (offline mode)', 'info');
+          return;
+        }
+
+        if (isManual) {
+          if (!res.ok) {
+            showToast(
+              json?.message || json?.error || 'Sync failed (no data sources available)',
+              'error'
+            );
+          } else {
+            showToast('No rows returned from sync', 'warning');
+          }
+        } else if (!res.ok) {
+          console.warn('[Live Sync] Auto-refresh failed:', json?.message || json?.error);
         }
       } catch (err) {
-        console.warn('Live fetch error, falling back to local snapshot:', err.message);
-        setIsLive(false);
-        if (isManual) showToast('Live endpoint unreachable, using local snapshot', 'info');
+        console.warn('Live fetch error:', err.message);
+        if (isManual) {
+          showToast('Live endpoint unreachable — keeping current data', 'error');
+        }
       } finally {
+        syncInFlightRef.current = false;
         setIsSyncing(false);
       }
     },
@@ -162,11 +208,9 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        isLive={isLive}
         isSyncing={isSyncing}
         onSync={() => fetchLiveData(true)}
         lastSyncTime={lastSyncTime}
-        executionId={executionId}
         autoRefresh={autoRefresh}
         setAutoRefresh={setAutoRefresh}
       />
@@ -179,6 +223,33 @@ export default function App() {
             ownerStats={ownerStats}
             onSelectControl={setSelectedControl}
             showToast={showToast}
+            onSendIncompleteMail={async (payload) => {
+              try {
+                const res = await fetch('/api/send-incomplete-mail', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload),
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || json.success === false) {
+                  showToast(
+                    json.message || json.error || 'Failed to send reminder email',
+                    'error'
+                  );
+                  return;
+                }
+                showToast(
+                  json.message ||
+                    `Reminder queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
+                  'success'
+                );
+              } catch (err) {
+                showToast(
+                  err.message || 'Failed to reach mail workflow',
+                  'error'
+                );
+              }
+            }}
           />
         )}
 
@@ -201,15 +272,18 @@ export default function App() {
       />
 
       <ModusWcToast position="bottom-end" delay={3500}>
-        {toasts.map((t) => (
-          <ModusWcAlert
-            key={t.id}
-            variant={t.type === 'success' ? 'success' : 'info'}
-            alertTitle={t.type === 'success' ? 'Success' : 'Info'}
-            alertDescription={t.message}
-            role="status"
-          />
-        ))}
+        {toasts.map((t) => {
+          const meta = TOAST_META[t.type] || TOAST_META.info;
+          return (
+            <ModusWcAlert
+              key={t.id}
+              variant={meta.variant}
+              alertTitle={meta.title}
+              alertDescription={t.message}
+              role="status"
+            />
+          );
+        })}
       </ModusWcToast>
 
       <footer className="app-footer">

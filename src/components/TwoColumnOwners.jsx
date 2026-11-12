@@ -7,20 +7,31 @@ import {
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
 
-/** Payload shape for a future n8n / mail automation webhook. */
+/**
+ * Payload for the incomplete-reminder n8n mail workflow.
+ * One click = one owner = one email (all their incomplete controls tabulated).
+ */
 export function buildIncompleteMailPayload(owner) {
+  const controls = owner.controls.map((c) => ({
+    id: c.id,
+    controlId: (c['Control ID'] || '').replace(/\u200b/g, '').trim(),
+    application: (c['Application Name'] || '').replace(/\u200b/g, '').trim(),
+    title: (c['Control Title'] || '').replace(/\u200b/g, '').trim(),
+    subProcess: (c['Sub-Process'] || '').replace(/\u200b/g, '').trim(),
+    ticketNumber: (c['TICKET NUMBER'] || '').replace(/\u200b/g, '').trim(),
+  }));
+
   return {
+    event: 'incomplete_control_reminder',
     ownerName: owner.name,
+    // Optional — fill from sheet later if you add an email column; n8n can also map name→email.
+    ownerEmail: owner.email || '',
     apps: owner.apps,
     incompleteCount: owner.count,
-    controls: owner.controls.map((c) => ({
-      id: c.id,
-      controlId: c['Control ID'],
-      application: c['Application Name'],
-      title: c['Control Title'],
-      subProcess: c['Sub-Process'],
-      ticketNumber: c['TICKET NUMBER'] || '',
-    })),
+    subject: `Control review reminder — ${owner.name}`,
+    reminderLabel: 'ongoing',
+    controls,
+    requestedAt: new Date().toISOString(),
   };
 }
 
@@ -75,46 +86,30 @@ export default function TwoColumnOwners({
 }) {
   const [completedSearch, setCompletedSearch] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
+  const [mailingOwner, setMailingOwner] = useState(null);
 
   const { completed: completedOwners, incomplete: pendingOwners } = useMemo(
     () => splitOwnerViews(ownerStats),
     [ownerStats]
   );
 
-  const handleEmailIncomplete = (owner) => {
+  const handleEmailIncomplete = async (owner) => {
     const payload = buildIncompleteMailPayload(owner);
 
-    // Future: call your automation webhook here (e.g. n8n mail workflow).
     if (typeof onSendIncompleteMail === 'function') {
-      onSendIncompleteMail(payload);
+      setMailingOwner(owner.name);
+      try {
+        await onSendIncompleteMail(payload);
+      } finally {
+        setMailingOwner(null);
+      }
       return;
     }
 
-    const lines = [
-      `Hi ${payload.ownerName},`,
-      '',
-      'The following control sheet items are still missing ticket numbers:',
-      '',
-      ...payload.controls.map(
-        (c, i) =>
-          `${i + 1}. ${c.controlId} (${c.application}) — ${c.title || 'No title'}`
-      ),
-      '',
-      'Please add the ticket number in the control sheet when complete.',
-      '',
-      '— Control Sheet Dashboard',
-    ];
-
-    const subject = encodeURIComponent(
-      `Incomplete control tickets — ${payload.ownerName}`
-    );
-    const body = encodeURIComponent(lines.join('\n'));
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-
     if (showToast) {
       showToast(
-        `Email draft ready for ${payload.ownerName} (${payload.incompleteCount} incomplete)`,
-        'info'
+        'Mail workflow is not wired yet — configure N8N_MAIL_WEBHOOK_PATH',
+        'warning'
       );
     }
   };
@@ -168,7 +163,7 @@ export default function TwoColumnOwners({
               </div>
             </div>
             <ModusWcBadge color="success" size="sm" variant="filled">
-              {completedOwners.length} Completed
+              {completedOwners.length}
             </ModusWcBadge>
           </div>
 
@@ -249,7 +244,7 @@ export default function TwoColumnOwners({
               </div>
             </div>
             <ModusWcBadge color="warning" size="sm" variant="filled">
-              {pendingOwners.length} Incomplete
+              {pendingOwners.length}
             </ModusWcBadge>
           </div>
 
@@ -295,12 +290,13 @@ export default function TwoColumnOwners({
                         color="tertiary"
                         variant="outlined"
                         size="sm"
+                        disabled={mailingOwner === owner.name}
                         aria-label={`Email ${owner.name} about incomplete controls`}
                         title="Send reminder email with incomplete control details"
                         onButtonClick={() => handleEmailIncomplete(owner)}
                       >
                         <ModusWcIcon name="email" size="xs" decorative />
-                        Email
+                        {mailingOwner === owner.name ? 'Sending…' : 'Email'}
                       </ModusWcButton>
                       <ModusWcBadge color="warning" size="sm" variant="filled">
                         Incomplete

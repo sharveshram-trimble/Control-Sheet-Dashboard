@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import {
-  ModusWcBadge,
   ModusWcButton,
   ModusWcIcon,
   ModusWcSelect,
@@ -20,11 +19,9 @@ const REFRESH_OPTIONS = [
 export default function Header({
   activeTab,
   setActiveTab,
-  isLive,
   isSyncing,
   onSync,
   lastSyncTime,
-  executionId,
   autoRefresh,
   setAutoRefresh,
 }) {
@@ -58,7 +55,7 @@ export default function Header({
         <nav className="nav-center-tabs" aria-label="Dashboard views">
           <ModusWcTabs
             aria-label="Dashboard views"
-            size="sm"
+            size="md"
             tabStyle="boxed"
             tabs={tabs}
             activeTabIndex={activeTabIndex}
@@ -70,16 +67,6 @@ export default function Header({
         </nav>
 
         <div className="nav-actions">
-          <ModusWcBadge
-            size="sm"
-            color={isLive ? 'success' : 'warning'}
-            variant="filled"
-            title="Live sync with n8n workflow LqRIsl66FSC8Nj8Q"
-          >
-            {isLive ? 'Live Sync' : 'Offline'}
-            {executionId ? ` #${executionId}` : ''}
-          </ModusWcBadge>
-
           <ModusWcSelect
             size="sm"
             bordered
