@@ -5,6 +5,7 @@ import HeroProgress from './components/HeroProgress';
 import TwoColumnOwners from './components/TwoColumnOwners';
 import ControlSheetTable from './components/ControlSheetTable';
 import ProcessAnalytics from './components/ProcessAnalytics';
+import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
 import { initialWorkflowData } from './data/initialData';
 
@@ -18,9 +19,6 @@ const TOAST_META = {
 export default function App() {
   const [items, setItems] = useState(initialWorkflowData);
   const [activeTab, setActiveTab] = useState('overview');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState(new Date().toISOString());
-  const [autoRefresh, setAutoRefresh] = useState('30s');
   const [selectedControl, setSelectedControl] = useState(null);
   const [toasts, setToasts] = useState([]);
   const syncInFlightRef = useRef(false);
@@ -37,14 +35,12 @@ export default function App() {
     async (isManual = false) => {
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
-      setIsSyncing(true);
       try {
         const res = await fetch('/api/live-data');
         const json = await res.json().catch(() => null);
 
         if (res.ok && json?.data?.length > 0) {
           setItems(json.data);
-          setLastSyncTime(json.timestamp || new Date().toISOString());
 
           if (isManual) {
             const completed =
@@ -102,7 +98,6 @@ export default function App() {
         }
       } finally {
         syncInFlightRef.current = false;
-        setIsSyncing(false);
       }
     },
     [showToast]
@@ -112,17 +107,13 @@ export default function App() {
     fetchLiveData(false);
   }, [fetchLiveData]);
 
+  // Background sync every 30s (header refresh controls replaced by Checklist tab)
   useEffect(() => {
-    if (autoRefresh === 'off') return;
-    const msMap = { '15s': 15000, '30s': 30000, '60s': 60000 };
-    const intervalMs = msMap[autoRefresh] || 30000;
-
     const timer = setInterval(() => {
       fetchLiveData(false);
-    }, intervalMs);
-
+    }, 30000);
     return () => clearInterval(timer);
-  }, [autoRefresh, fetchLiveData]);
+  }, [fetchLiveData]);
 
   const { stats, ownerStats } = useMemo(() => {
     const totalControls = items.length;
@@ -205,15 +196,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        isSyncing={isSyncing}
-        onSync={() => fetchLiveData(true)}
-        lastSyncTime={lastSyncTime}
-        autoRefresh={autoRefresh}
-        setAutoRefresh={setAutoRefresh}
-      />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="main-content">
         <HeroProgress items={items} stats={stats} />
@@ -238,9 +221,15 @@ export default function App() {
                   );
                   return;
                 }
+                const kind =
+                  payload.mailType === 'follow_up'
+                    ? 'Follow-up'
+                    : payload.mailType === 'draft'
+                      ? 'Draft'
+                      : 'Reminder';
                 showToast(
                   json.message ||
-                    `Reminder queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
+                    `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
                   'success'
                 );
               } catch (err) {
@@ -263,6 +252,13 @@ export default function App() {
 
         {activeTab === 'progress' && (
           <ProcessAnalytics items={items} stats={stats} ownerStats={ownerStats} />
+        )}
+
+        {activeTab === 'checklist' && (
+          <ChecklistView
+            items={items}
+            onSelectControl={setSelectedControl}
+          />
         )}
       </main>
 

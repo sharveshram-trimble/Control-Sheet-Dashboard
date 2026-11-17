@@ -1,17 +1,60 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ModusWcBadge,
   ModusWcButton,
   ModusWcIcon,
+  ModusWcModal,
+  ModusWcSelect,
   ModusWcTextInput,
+  ModusWcTextarea,
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
 
+const DRAFT_MAIL_MODAL_ID = 'draft-incomplete-mail-modal';
+
+const MAIL_TYPE_OPTIONS = [
+  { label: 'Reminder mail', value: 'reminder' },
+  { label: 'Follow up mail', value: 'follow_up' },
+  { label: 'Draft your own mail', value: 'draft' },
+];
+
+const MAIL_TEMPLATES = {
+  reminder: {
+    subject: (name) => `Control review reminder — ${name}`,
+    bodyText: (name) =>
+      [
+        `Hi ${name},`,
+        '',
+        'This is a reminder for your ongoing control reviews. Please find the list of incomplete controls below:',
+        '',
+        'Please review, upload documentation to the Drive folder, and reply with the application ticket number.',
+        '',
+        'Thanks,',
+        'Sharvesh Ram',
+      ].join('\n'),
+  },
+  follow_up: {
+    subject: (name) => `Follow-up: incomplete control tickets — ${name}`,
+    bodyText: (name) =>
+      [
+        `Hi ${name},`,
+        '',
+        'This is a follow-up regarding your pending control reviews. The following controls still do not have ticket numbers:',
+        '',
+        'Please prioritize these items, upload evidence to the Drive folder, and reply with the application ticket numbers at your earliest convenience.',
+        '',
+        'Thanks,',
+        'Sharvesh Ram',
+      ].join('\n'),
+  },
+};
+
 /**
- * Payload for the incomplete-reminder n8n mail workflow.
- * One click = one owner = one email (all their incomplete controls tabulated).
+ * Payload for the incomplete-mail n8n workflow.
+ * mailType: reminder | follow_up | draft
+ * bodyText is the message above the incomplete-controls table (n8n appends the table).
  */
-export function buildIncompleteMailPayload(owner) {
+export function buildIncompleteMailPayload(owner, { mailType = 'reminder', subject, bodyText } = {}) {
   const controls = owner.controls.map((c) => ({
     id: c.id,
     controlId: (c['Control ID'] || '').replace(/\u200b/g, '').trim(),
@@ -21,15 +64,30 @@ export function buildIncompleteMailPayload(owner) {
     ticketNumber: (c['TICKET NUMBER'] || '').replace(/\u200b/g, '').trim(),
   }));
 
+  const template = MAIL_TEMPLATES[mailType];
+  const resolvedSubject =
+    subject?.trim() ||
+    template?.subject(owner.name) ||
+    `Control review reminder — ${owner.name}`;
+  const resolvedBody =
+    bodyText?.trim() ||
+    template?.bodyText(owner.name) ||
+    '';
+
   return {
-    event: 'incomplete_control_reminder',
+    event:
+      mailType === 'follow_up'
+        ? 'incomplete_control_follow_up'
+        : mailType === 'draft'
+          ? 'incomplete_control_draft'
+          : 'incomplete_control_reminder',
+    mailType,
     ownerName: owner.name,
-    // Optional — fill from sheet later if you add an email column; n8n can also map name→email.
     ownerEmail: owner.email || '',
     apps: owner.apps,
     incompleteCount: owner.count,
-    subject: `Control review reminder — ${owner.name}`,
-    reminderLabel: 'ongoing',
+    subject: resolvedSubject,
+    bodyText: resolvedBody,
     controls,
     requestedAt: new Date().toISOString(),
   };
@@ -78,6 +136,10 @@ function splitOwnerViews(ownerStats) {
   return { completed, incomplete };
 }
 
+function getDraftDialog() {
+  return document.getElementById(DRAFT_MAIL_MODAL_ID);
+}
+
 export default function TwoColumnOwners({
   ownerStats,
   onSelectControl,
@@ -87,31 +149,98 @@ export default function TwoColumnOwners({
   const [completedSearch, setCompletedSearch] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [mailingOwner, setMailingOwner] = useState(null);
+  const [mailTypeByOwner, setMailTypeByOwner] = useState({});
+  const [draftOwner, setDraftOwner] = useState(null);
+  const [draftSubject, setDraftSubject] = useState('');
+  const [draftBody, setDraftBody] = useState('');
 
   const { completed: completedOwners, incomplete: pendingOwners } = useMemo(
     () => splitOwnerViews(ownerStats),
     [ownerStats]
   );
 
-  const handleEmailIncomplete = async (owner) => {
-    const payload = buildIncompleteMailPayload(owner);
+  useEffect(() => {
+    const dialog = getDraftDialog();
+    if (!dialog) return undefined;
+    const onClose = () => {
+      setDraftOwner(null);
+      setDraftSubject('');
+      setDraftBody('');
+    };
+    dialog.addEventListener('close', onClose);
+    return () => dialog.removeEventListener('close', onClose);
+  }, []);
 
-    if (typeof onSendIncompleteMail === 'function') {
-      setMailingOwner(owner.name);
-      try {
-        await onSendIncompleteMail(payload);
-      } finally {
-        setMailingOwner(null);
+  const getMailType = (ownerName) => mailTypeByOwner[ownerName] || 'reminder';
+
+  const setMailType = (ownerName, value) => {
+    setMailTypeByOwner((prev) => ({ ...prev, [ownerName]: value || 'reminder' }));
+  };
+
+  const sendMail = async (owner, options) => {
+    const payload = buildIncompleteMailPayload(owner, options);
+
+    if (typeof onSendIncompleteMail !== 'function') {
+      if (showToast) {
+        showToast(
+          'Mail workflow is not wired yet — configure N8N_MAIL_WEBHOOK_PATH',
+          'warning'
+        );
       }
       return;
     }
 
-    if (showToast) {
-      showToast(
-        'Mail workflow is not wired yet — configure N8N_MAIL_WEBHOOK_PATH',
-        'warning'
-      );
+    setMailingOwner(owner.name);
+    try {
+      await onSendIncompleteMail(payload);
+    } finally {
+      setMailingOwner(null);
     }
+  };
+
+  const openDraftModal = (owner) => {
+    setDraftOwner(owner);
+    setDraftSubject(`Control review — ${owner.name}`);
+    setDraftBody(
+      `Hi ${owner.name},\n\n` +
+        `Please see the incomplete controls listed below.\n\n` +
+        `Thanks,\nSharvesh Ram`
+    );
+    getDraftDialog()?.showModal();
+  };
+
+  const closeDraftModal = () => {
+    getDraftDialog()?.close();
+  };
+
+  const handleEmailClick = async (owner) => {
+    const mailType = getMailType(owner.name);
+
+    if (mailType === 'draft') {
+      openDraftModal(owner);
+      return;
+    }
+
+    await sendMail(owner, { mailType });
+  };
+
+  const handleSendDraft = async () => {
+    if (!draftOwner) return;
+    if (!draftSubject.trim()) {
+      showToast?.('Enter a subject line for the draft mail', 'warning');
+      return;
+    }
+    if (!draftBody.trim()) {
+      showToast?.('Enter the draft mail message', 'warning');
+      return;
+    }
+
+    await sendMail(draftOwner, {
+      mailType: 'draft',
+      subject: draftSubject,
+      bodyText: draftBody,
+    });
+    closeDraftModal();
   };
 
   const filteredCompleted = completedOwners.filter(
@@ -285,23 +414,36 @@ export default function TwoColumnOwners({
                       </div>
                     </div>
 
-                    <div className="owner-card-actions">
-                      <ModusWcButton
-                        color="tertiary"
-                        variant="outlined"
-                        size="sm"
-                        disabled={mailingOwner === owner.name}
-                        aria-label={`Email ${owner.name} about incomplete controls`}
-                        title="Send reminder email with incomplete control details"
-                        onButtonClick={() => handleEmailIncomplete(owner)}
-                      >
-                        <ModusWcIcon name="email" size="xs" decorative />
-                        {mailingOwner === owner.name ? 'Sending…' : 'Email'}
-                      </ModusWcButton>
-                      <ModusWcBadge color="warning" size="sm" variant="filled">
-                        Incomplete
-                      </ModusWcBadge>
-                    </div>
+                    <ModusWcBadge color="warning" size="sm" variant="filled">
+                      Incomplete
+                    </ModusWcBadge>
+                  </div>
+
+                  <div className="owner-mail-actions">
+                    <ModusWcSelect
+                      size="sm"
+                      bordered
+                      label=""
+                      aria-label={`Mail type for ${owner.name}`}
+                      value={getMailType(owner.name)}
+                      options={MAIL_TYPE_OPTIONS}
+                      customClass="owner-mail-type-select"
+                      onInputChange={(e) =>
+                        setMailType(owner.name, readInputString(e) || 'reminder')
+                      }
+                    />
+                    <ModusWcButton
+                      color="tertiary"
+                      variant="outlined"
+                      size="sm"
+                      disabled={mailingOwner === owner.name}
+                      aria-label={`Send mail to ${owner.name}`}
+                      title="Send selected mail type with incomplete control table"
+                      onButtonClick={() => handleEmailClick(owner)}
+                    >
+                      <ModusWcIcon name="email" size="xs" decorative />
+                      {mailingOwner === owner.name ? 'Sending…' : 'Mail'}
+                    </ModusWcButton>
                   </div>
 
                   <div className="owner-controls-chips">
@@ -327,6 +469,75 @@ export default function TwoColumnOwners({
           </div>
         </div>
       </div>
+
+      <ModusWcModal
+        modalId={DRAFT_MAIL_MODAL_ID}
+        backdrop="default"
+        position="center"
+        showClose
+        aria-label="Draft your own mail"
+      >
+        <span slot="header">
+          Draft mail{draftOwner ? ` — ${draftOwner.name}` : ''}
+        </span>
+        <div slot="content" className="draft-mail-content">
+          <p className="draft-mail-hint">
+            Write your subject and message. The incomplete controls table for this
+            owner is added automatically by the mail workflow.
+          </p>
+          <ModusWcTextInput
+            size="sm"
+            bordered
+            label="Subject"
+            value={draftSubject}
+            aria-label="Draft mail subject"
+            onInputChange={(e) => setDraftSubject(readInputString(e))}
+          />
+          <ModusWcTextarea
+            bordered
+            label="Message"
+            rows={8}
+            value={draftBody}
+            aria-label="Draft mail message"
+            onInputChange={(e) => setDraftBody(readInputString(e))}
+          />
+          {draftOwner ? (
+            <div className="draft-mail-preview">
+              <strong>
+                Incomplete controls included ({draftOwner.count}):
+              </strong>
+              <ul>
+                {draftOwner.controls.map((c) => (
+                  <li key={c.id}>
+                    {(c['Control ID'] || '').trim()} —{' '}
+                    {(c['Application Name'] || '').trim()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+        <div slot="footer" className="draft-mail-footer">
+          <ModusWcButton
+            variant="outlined"
+            color="tertiary"
+            size="sm"
+            onButtonClick={closeDraftModal}
+          >
+            Cancel
+          </ModusWcButton>
+          <ModusWcButton
+            variant="filled"
+            color="primary"
+            size="sm"
+            disabled={!draftOwner || mailingOwner === draftOwner?.name}
+            onButtonClick={handleSendDraft}
+          >
+            <ModusWcIcon name="email" size="xs" decorative />
+            {mailingOwner === draftOwner?.name ? 'Sending…' : 'Send mail'}
+          </ModusWcButton>
+        </div>
+      </ModusWcModal>
     </section>
   );
 }

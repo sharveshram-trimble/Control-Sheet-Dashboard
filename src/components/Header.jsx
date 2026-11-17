@@ -1,35 +1,15 @@
 import React, { useMemo } from 'react';
-import {
-  ModusWcButton,
-  ModusWcIcon,
-  ModusWcSelect,
-  ModusWcTabs,
-} from '@trimble-oss/moduswebcomponents-react';
-import { readInputString } from '../utils/modusFormEvents';
+import { ModusWcTabs } from '@trimble-oss/moduswebcomponents-react';
 
-const TAB_KEYS = ['overview', 'matrix', 'progress'];
+const TAB_KEYS = ['overview', 'matrix', 'progress', 'checklist'];
 
-const REFRESH_OPTIONS = [
-  { label: 'Manual', value: 'off' },
-  { label: '15s', value: '15s' },
-  { label: '30s', value: '30s' },
-  { label: '60s', value: '60s' },
-];
-
-export default function Header({
-  activeTab,
-  setActiveTab,
-  isSyncing,
-  onSync,
-  lastSyncTime,
-  autoRefresh,
-  setAutoRefresh,
-}) {
+export default function Header({ activeTab, setActiveTab }) {
   const tabs = useMemo(
     () => [
       { label: 'Overview & Owners', icon: 'dashboard', iconPosition: 'left' },
       { label: 'Control Sheet Matrix', icon: 'table', iconPosition: 'left' },
       { label: 'Individual Progress', icon: 'person', iconPosition: 'left' },
+      { label: 'Checklist', icon: 'list_bulleted', iconPosition: 'left' },
     ],
     []
   );
@@ -66,35 +46,8 @@ export default function Header({
           />
         </nav>
 
-        <div className="nav-actions">
-          <ModusWcSelect
-            size="sm"
-            bordered
-            label=""
-            aria-label="Auto refresh interval"
-            value={autoRefresh}
-            options={REFRESH_OPTIONS}
-            customClass="header-refresh-select"
-            onInputChange={(e) => setAutoRefresh(readInputString(e) || 'off')}
-          />
-
-          <ModusWcButton
-            color="primary"
-            variant="filled"
-            size="sm"
-            disabled={isSyncing}
-            onButtonClick={onSync}
-            title={`Last sync: ${lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Just now'}`}
-          >
-            <ModusWcIcon
-              name="refresh"
-              size="sm"
-              decorative
-              customClass={isSyncing ? 'spinning-icon' : undefined}
-            />
-            {isSyncing ? 'Syncing...' : 'Sync Now'}
-          </ModusWcButton>
-        </div>
+        {/* Sync / 30s controls removed — Checklist tab occupies this header area */}
+        <div className="nav-actions nav-actions-spacer" aria-hidden="true" />
       </div>
     </header>
   );
