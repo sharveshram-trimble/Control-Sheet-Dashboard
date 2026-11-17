@@ -38,15 +38,10 @@ loadDotEnv();
 
 const API_KEY = process.env.N8N_API_KEY || '';
 const WORKFLOW_ID = process.env.N8N_WORKFLOW_ID || '';
-const N8N_HOST = process.env.N8N_HOST || 'flows.stage.trimble-ai.com';
-const WEBHOOK_HOST =
-  process.env.N8N_WEBHOOK_HOST || 'flows-webhook.stage.trimble-ai.com';
-const WEBHOOK_PATH =
-  process.env.N8N_WEBHOOK_PATH ||
-  '/agentic/workflows/v1/webhook/2c05024d-a533-4f74-92bd-3c99c88095b4';
-const WEBHOOK_TEST_PATH =
-  process.env.N8N_WEBHOOK_TEST_PATH ||
-  '/agentic/workflows/v1/webhook-test/2c05024d-a533-4f74-92bd-3c99c88095b4';
+const N8N_HOST = (process.env.N8N_HOST || '').trim();
+const WEBHOOK_HOST = (process.env.N8N_WEBHOOK_HOST || '').trim();
+const WEBHOOK_PATH = (process.env.N8N_WEBHOOK_PATH || '').trim();
+const WEBHOOK_TEST_PATH = (process.env.N8N_WEBHOOK_TEST_PATH || '').trim();
 const MAIL_WEBHOOK_PATH = (process.env.N8N_MAIL_WEBHOOK_PATH || '').trim();
 // Optional static Bearer (pasted access_token). Prefer Trimble ID client credentials.
 const WEBHOOK_AUTH_STATIC = (process.env.N8N_WEBHOOK_AUTH || '').trim();
@@ -58,15 +53,21 @@ const TID_TOKEN_URL =
   process.env.TID_TOKEN_URL || 'https://stage.id.trimblecloud.com/oauth/token';
 const TID_CLIENT_ID = (process.env.TID_CLIENT_ID || '').trim();
 const TID_CLIENT_SECRET = (process.env.TID_CLIENT_SECRET || '').trim();
-const TID_SCOPE = (process.env.TID_SCOPE || 'Agentic-N8N-Webhook').trim();
+const TID_SCOPE = (process.env.TID_SCOPE || '').trim();
 
 /** @type {{ accessToken: string, expiresAt: number } | null} */
 let tidTokenCache = null;
 const TOKEN_EXPIRY_SKEW_MS = 60_000;
 
-if (!API_KEY || !WORKFLOW_ID) {
+if (!API_KEY || !WORKFLOW_ID || !N8N_HOST) {
   console.warn(
-    '[env] Missing N8N_API_KEY or N8N_WORKFLOW_ID in .env — executions API fallback will fail.'
+    '[env] Missing N8N_API_KEY, N8N_WORKFLOW_ID, or N8N_HOST in .env — executions API fallback will fail.'
+  );
+}
+
+if (!WEBHOOK_HOST || !WEBHOOK_PATH) {
+  console.warn(
+    '[env] Missing N8N_WEBHOOK_HOST or N8N_WEBHOOK_PATH in .env — live webhook sync will fail.'
   );
 }
 
@@ -341,6 +342,14 @@ async function callWebhookOnce(pathString, bearerToken) {
 }
 
 async function fetchFromProductionWebhook() {
+  if (!WEBHOOK_HOST || !WEBHOOK_PATH) {
+    const err = new Error(
+      'Webhook not configured — set N8N_WEBHOOK_HOST and N8N_WEBHOOK_PATH in .env'
+    );
+    err.code = 'WEBHOOK_NOT_CONFIGURED';
+    throw err;
+  }
+
   const label = 'n8n_webhook_production';
   let bearer = await getAccessToken(false);
 
