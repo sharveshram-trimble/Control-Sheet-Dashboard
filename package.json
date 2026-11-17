@@ -12,6 +12,7 @@
   "dependencies": {
     "@trimble-oss/moduswebcomponents": "^1.20.0",
     "@trimble-oss/moduswebcomponents-react": "^1.20.0-react19",
+    "@trimble-oss/trimble-id-react": "1.0.4",
     "canvas-confetti": "^1.9.4",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",

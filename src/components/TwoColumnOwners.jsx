@@ -291,9 +291,9 @@ export default function TwoColumnOwners({
                 <p>Verified ticket numbers only — incomplete controls are listed on the right</p>
               </div>
             </div>
-            <ModusWcBadge color="success" size="sm" variant="filled">
+            <span className="column-count completed" aria-label={`${completedOwners.length} completed owners`}>
               {completedOwners.length}
-            </ModusWcBadge>
+            </span>
           </div>
 
           <div className="column-search-wrap">
@@ -347,11 +347,15 @@ export default function TwoColumnOwners({
                         onClick={() => onSelectControl && onSelectControl(control)}
                         title="Click to view control details"
                       >
-                        <span className="chip-id">{control['Control ID']}</span>
-                        <span>({control['Application Name']})</span>
-                        <ModusWcBadge color="primary" size="sm" variant="filled">
+                        <span className="chip-text">
+                          <span className="chip-id">{control['Control ID']}</span>
+                          <span className="chip-app">
+                            ({control['Application Name']})
+                          </span>
+                        </span>
+                        <span className="ticket-pill">
                           {control['TICKET NUMBER']}
-                        </ModusWcBadge>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -372,9 +376,9 @@ export default function TwoColumnOwners({
                 <p>Missing ticket numbers only — completed controls are listed on the left</p>
               </div>
             </div>
-            <ModusWcBadge color="warning" size="sm" variant="filled">
+            <span className="column-count pending" aria-label={`${pendingOwners.length} incomplete owners`}>
               {pendingOwners.length}
-            </ModusWcBadge>
+            </span>
           </div>
 
           <div className="column-search-wrap">
@@ -455,11 +459,13 @@ export default function TwoColumnOwners({
                         onClick={() => onSelectControl && onSelectControl(control)}
                         title="Click to view details"
                       >
-                        <span className="chip-id">{control['Control ID']}</span>
-                        <span>({control['Application Name']})</span>
-                        <ModusWcBadge color="danger" size="sm" variant="outlined">
-                          No Ticket
-                        </ModusWcBadge>
+                        <span className="chip-text">
+                          <span className="chip-id">{control['Control ID']}</span>
+                          <span className="chip-app">
+                            ({control['Application Name']})
+                          </span>
+                        </span>
+                        <span className="ticket-pill missing">No Ticket</span>
                       </button>
                     ))}
                   </div>

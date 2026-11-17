@@ -681,6 +681,7 @@ export default defineConfig({
   plugins: [react(), n8nLiveApiPlugin()],
   server: {
     port: 3000,
+    strictPort: true,
     open: false,
     host: true,
   },

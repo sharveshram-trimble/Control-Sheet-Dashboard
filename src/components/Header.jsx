@@ -1,9 +1,15 @@
 import React, { useMemo } from 'react';
-import { ModusWcTabs } from '@trimble-oss/moduswebcomponents-react';
+import {
+  ModusWcButton,
+  ModusWcIcon,
+  ModusWcTabs,
+} from '@trimble-oss/moduswebcomponents-react';
+import { useAuth } from '@trimble-oss/trimble-id-react';
 
 const TAB_KEYS = ['overview', 'matrix', 'progress', 'checklist'];
 
 export default function Header({ activeTab, setActiveTab }) {
+  const { user, logout } = useAuth();
   const tabs = useMemo(
     () => [
       { label: 'Overview & Owners', icon: 'dashboard', iconPosition: 'left' },
@@ -15,6 +21,8 @@ export default function Header({ activeTab, setActiveTab }) {
   );
 
   const activeTabIndex = Math.max(0, TAB_KEYS.indexOf(activeTab));
+  const displayName =
+    user?.name || user?.email || user?.preferred_username || '';
 
   return (
     <header className="top-nav">
@@ -35,7 +43,7 @@ export default function Header({ activeTab, setActiveTab }) {
         <nav className="nav-center-tabs" aria-label="Dashboard views">
           <ModusWcTabs
             aria-label="Dashboard views"
-            size="md"
+            size="sm"
             tabStyle="boxed"
             tabs={tabs}
             activeTabIndex={activeTabIndex}
@@ -46,8 +54,25 @@ export default function Header({ activeTab, setActiveTab }) {
           />
         </nav>
 
-        {/* Sync / 30s controls removed — Checklist tab occupies this header area */}
-        <div className="nav-actions nav-actions-spacer" aria-hidden="true" />
+        <div className="nav-actions">
+          {displayName ? (
+            <span className="nav-user-label" title={displayName}>
+              {displayName}
+            </span>
+          ) : null}
+          <ModusWcButton
+            color="tertiary"
+            variant="outlined"
+            size="sm"
+            aria-label="Sign out"
+            onButtonClick={async () => {
+              await logout();
+            }}
+          >
+            <ModusWcIcon name="sign_out" size="xs" decorative />
+            Sign out
+          </ModusWcButton>
+        </div>
       </div>
     </header>
   );
