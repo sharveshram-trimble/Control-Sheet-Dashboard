@@ -293,10 +293,11 @@
   color: var(--brand-blue-dark);
 }
 
-.status-chip--idle {
-  background: var(--surface-2);
-  border-color: var(--line);
-  color: var(--slate);
+.status-chip--idle,
+.status-chip--pending {
+  background: color-mix(in srgb, var(--ink-secondary) 8%, white);
+  border-color: color-mix(in srgb, var(--ink-secondary) 28%, var(--line));
+  color: var(--ink-secondary);
   font-weight: 600;
 }
 
@@ -843,8 +844,14 @@
   gap: 0.65rem;
 }
 
+.owner-card-top > .status-chip {
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
 .owner-profile {
   justify-content: flex-start;
+  min-width: 0;
 }
 
 .owner-avatar {

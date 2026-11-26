@@ -6,8 +6,8 @@ const MAP = {
   warn: { className: 'status-chip status-chip--warn', icon: 'time', label: 'Missing ticket' },
   bad: { className: 'status-chip status-chip--bad', icon: 'warning', label: 'Failed' },
   info: { className: 'status-chip status-chip--info', icon: 'info', label: 'In progress' },
-  pending: { className: 'status-chip status-chip--idle', icon: 'time', label: 'Pending' },
-  idle: { className: 'status-chip status-chip--idle', icon: 'info', label: 'Pending' },
+  pending: { className: 'status-chip status-chip--pending', icon: 'time', label: 'Not started' },
+  idle: { className: 'status-chip status-chip--pending', icon: 'time', label: 'Not started' },
 };
 
 /** Status always = icon + visible label + color (never hue-only). */

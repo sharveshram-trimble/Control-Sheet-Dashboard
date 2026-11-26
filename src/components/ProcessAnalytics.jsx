@@ -10,7 +10,7 @@ function ownerState(owner) {
   if (owner.completedControlsCount > 0) {
     return { key: 'partial', tone: 'info', label: 'In progress' };
   }
-  return { key: 'pending', tone: 'idle', label: 'Not started' };
+  return { key: 'pending', tone: 'pending', label: 'Not started' };
 }
 
 export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
