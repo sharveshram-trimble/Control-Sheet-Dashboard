@@ -12,14 +12,14 @@ export function getAgentsApiBase(environment = 'stage') {
   const override = trim(import.meta.env.VITE_AGENTS_API_BASE);
   if (override) return override.replace(/\/$/, '');
 
-  const env = String(environment || 'stage').toLowerCase();
-  if (env === 'prod' || env === 'production') {
-    return 'https://agents.ai.trimble.com';
-  }
-
   // Dev server proxies this path to avoid localhost CORS (see vite.config.js).
   if (import.meta.env.DEV) {
     return '/api/agents-proxy';
+  }
+
+  const env = String(environment || 'stage').toLowerCase();
+  if (env === 'prod' || env === 'production') {
+    return 'https://agents.ai.trimble.com';
   }
 
   return 'https://agents.stage.trimble-ai.com';
