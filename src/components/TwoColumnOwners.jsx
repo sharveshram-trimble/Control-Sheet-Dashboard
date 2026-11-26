@@ -385,7 +385,7 @@ export default function TwoColumnOwners({
                             </ModusWcButton>
                           ) : (
                             <StatusChip
-                              tone="warn"
+                              tone="idle"
                               label="No checklist"
                               compact
                             />

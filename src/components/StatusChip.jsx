@@ -3,10 +3,11 @@ import { ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
 
 const MAP = {
   ok: { className: 'status-chip status-chip--ok', icon: 'check_circle', label: 'Ticketed' },
-  warn: { className: 'status-chip status-chip--warn', icon: 'warning', label: 'Missing ticket' },
+  warn: { className: 'status-chip status-chip--warn', icon: 'time', label: 'Missing ticket' },
   bad: { className: 'status-chip status-chip--bad', icon: 'warning', label: 'Failed' },
   info: { className: 'status-chip status-chip--info', icon: 'info', label: 'In progress' },
   pending: { className: 'status-chip status-chip--idle', icon: 'time', label: 'Pending' },
+  idle: { className: 'status-chip status-chip--idle', icon: 'info', label: 'Pending' },
 };
 
 /** Status always = icon + visible label + color (never hue-only). */
