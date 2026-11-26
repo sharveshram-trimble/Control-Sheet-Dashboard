@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ModusWcBadge,
-  ModusWcIcon,
   ModusWcTextInput,
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
@@ -62,12 +61,9 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
       <div className="table-section-card analytics-panel">
         <div className="analytics-panel-header">
           <div>
-            <h3>
-              Individual Owner Progress ({ownerStats.length} Owners)
-            </h3>
+            <h3>Owner progress ({ownerStats.length})</h3>
             <p>
-              Detailed completion percentage and verified ticket status for each
-              control owner
+              Completion and verified ticket status for each control owner.
             </p>
           </div>
 
@@ -77,7 +73,7 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
             includeSearch
             includeClear
             type="search"
-            placeholder="Search owner or application..."
+            placeholder="Search owner or application…"
             value={ownerSearch}
             aria-label="Search owners"
             customClass="analytics-search-input"
@@ -113,15 +109,15 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
                     size="sm"
                     variant="filled"
                   >
-                    {isFullyDone ? '100% Done' : `${owner.completionPercentage}%`}
+                    {isFullyDone ? 'Complete' : `${owner.completionPercentage}%`}
                   </ModusWcBadge>
                 </div>
 
                 <div>
                   <div className="progress-meta-row">
                     <span>
-                      {owner.completedControlsCount} of {owner.totalControls} Controls
-                      Verified
+                      {owner.completedControlsCount} of {owner.totalControls}{' '}
+                      verified
                     </span>
                     <span className={isFullyDone ? 'text-success' : 'text-primary'}>
                       {owner.completionPercentage}%
@@ -154,58 +150,40 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
       </div>
 
       <div className="subprocess-grid">
-        <div className="stat-tile subprocess-tile">
-          <div className="stat-header">
-            <div>
-              <span className="stat-title">Sub-Process 02.05</span>
-              <h3>Access Management</h3>
-            </div>
-            <div className="stat-icon blue">
-              <ModusWcIcon name="dashboard" size="md" decorative />
-            </div>
-          </div>
-
+        <div className="subprocess-tile">
+          <p className="subprocess-kicker">02.05</p>
+          <h3>Access Management</h3>
           <div className="subprocess-progress">
             <div className="progress-meta-row">
-              <span>Completion: {accessPct}%</span>
+              <span>{accessPct}% complete</span>
               <span>
-                {accessCompleted} of {accessControls.length} Controls
+                {accessCompleted} of {accessControls.length}
               </span>
             </div>
             <div className="progress-track">
               <div className="progress-fill primary" style={{ width: `${accessPct}%` }} />
             </div>
           </div>
-
           <p className="subprocess-desc">
             Periodic system access reviews across financial and infrastructure
             applications.
           </p>
         </div>
 
-        <div className="stat-tile subprocess-tile">
-          <div className="stat-header">
-            <div>
-              <span className="stat-title">Sub-Process 01.04</span>
-              <h3>Change Management</h3>
-            </div>
-            <div className="stat-icon amber">
-              <ModusWcIcon name="shield" size="md" decorative />
-            </div>
-          </div>
-
+        <div className="subprocess-tile">
+          <p className="subprocess-kicker">01.04</p>
+          <h3>Change Management</h3>
           <div className="subprocess-progress">
             <div className="progress-meta-row">
-              <span>Completion: {changePct}%</span>
+              <span>{changePct}% complete</span>
               <span>
-                {changeCompleted} of {changeControls.length} Controls
+                {changeCompleted} of {changeControls.length}
               </span>
             </div>
             <div className="progress-track">
               <div className="progress-fill warning" style={{ width: `${changePct}%` }} />
             </div>
           </div>
-
           <p className="subprocess-desc">
             Monitoring and approvals of system changes deployed into production
             environments.
@@ -214,9 +192,12 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
       </div>
 
       <div className="table-section-card analytics-panel">
-        <h3 className="app-breakdown-title">
-          Application-Level Compliance Breakdown ({appList.length} Applications)
-        </h3>
+        <div className="analytics-panel-header">
+          <div>
+            <h3>Applications ({appList.length})</h3>
+            <p>Ticket verification by application.</p>
+          </div>
+        </div>
 
         <div className="app-breakdown-grid">
           {appList.map((item) => (
@@ -252,9 +233,9 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
               </div>
               <div className="app-breakdown-meta">
                 <span>
-                  {item.completed} of {item.total} Done
+                  {item.completed} of {item.total} ticketed
                 </span>
-                <span>{item.total - item.completed} Pending</span>
+                <span>{item.total - item.completed} pending</span>
               </div>
             </div>
           ))}

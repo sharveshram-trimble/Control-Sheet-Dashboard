@@ -90,25 +90,31 @@ export default function ControlSheetTable({ items, showToast }) {
   return (
     <div className="table-section-card">
       <div className="table-controls-bar">
+        <div className="table-controls-heading">
+          <h2>Control sheet matrix</h2>
+          <p>
+            {filteredItems.length} of {items.length} controls shown
+          </p>
+        </div>
         <div className="table-filters-group">
-          {filterBtn(statusFilter === 'all', () => setStatusFilter('all'), `All Controls (${items.length})`)}
-          {filterBtn(statusFilter === 'completed', () => setStatusFilter('completed'), `Completed (${completedCount})`)}
+          {filterBtn(statusFilter === 'all', () => setStatusFilter('all'), `All (${items.length})`)}
+          {filterBtn(statusFilter === 'completed', () => setStatusFilter('completed'), `Ticketed (${completedCount})`)}
           {filterBtn(statusFilter === 'pending', () => setStatusFilter('pending'), `Pending (${pendingCount})`)}
 
           <span className="filter-divider" aria-hidden="true">
             |
           </span>
 
-          {filterBtn(processFilter === 'all', () => setProcessFilter('all'), 'All Sub-Processes')}
+          {filterBtn(processFilter === 'all', () => setProcessFilter('all'), 'All processes')}
           {filterBtn(
             processFilter === 'Access Management',
             () => setProcessFilter('Access Management'),
-            'Access Management (02.05)'
+            'Access (02.05)'
           )}
           {filterBtn(
             processFilter === 'Change Management',
             () => setProcessFilter('Change Management'),
-            'Change Management (01.04)'
+            'Change (01.04)'
           )}
         </div>
 
@@ -206,7 +212,7 @@ export default function ControlSheetTable({ items, showToast }) {
                       </ModusWcBadge>
                     ) : (
                       <ModusWcBadge color="danger" size="sm" variant="outlined">
-                        Missing Ticket
+                        Missing
                       </ModusWcBadge>
                     )}
                   </td>

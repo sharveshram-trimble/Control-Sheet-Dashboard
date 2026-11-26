@@ -161,12 +161,11 @@ export default function ChecklistView({
       <div className="table-section-card checklist-section">
         <div className="table-controls-bar">
           <div className="checklist-header-copy">
-            <h2>Checklist</h2>
+            <h2>Checklist runs</h2>
             <p>
-              Completed controls from the live sheet. Run Checklist calls the
-              Agents API with your Trimble ID user token, using the CHECKLIST
-              name and selected quarter Drive folder. Output shows success only
-              when every checklist checkpoint passed; otherwise failed.
+              Ticketed controls from the live sheet. Run checklist uses your
+              Trimble ID user token against the Agents API. Output is success
+              only when every checkpoint passes.
             </p>
           </div>
           <div className="table-filters-group checklist-header-actions">
@@ -181,7 +180,7 @@ export default function ChecklistView({
               }}
             />
             <ModusWcBadge color="success" size="sm" variant="filled">
-              {completedItems.length} completed
+              {completedItems.length} ticketed
             </ModusWcBadge>
           </div>
         </div>

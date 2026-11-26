@@ -161,7 +161,31 @@ function AuthApp() {
   );
 }
 
+function UiPreviewApp() {
+  const handleRedirect = useCallback(() => {}, []);
+  if (!tidClient) {
+    return <App />;
+  }
+  return (
+    <TIDProvider
+      tidClient={tidClient}
+      checkRedirectUrlMatch={false}
+      onRedirectCallback={handleRedirect}
+    >
+      <App />
+    </TIDProvider>
+  );
+}
+
 export default function AuthRoot() {
+  // DEV-only: ?uiPreview=1 skips the auth gate so surfaces can be reviewed offline.
+  if (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).has('uiPreview')
+  ) {
+    return <UiPreviewApp />;
+  }
+
   if (!tidClient) {
     return <MissingConfigApp />;
   }

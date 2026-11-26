@@ -274,9 +274,9 @@ export default function TwoColumnOwners({
     <section className="owner-breakdown-section">
       <div className="section-header-row">
         <div className="section-header-title">
-          <h2>Control Owner Compliance Separation</h2>
+          <h2>Owners by ticket status</h2>
           <ModusWcBadge color="default" size="sm" variant="outlined">
-            Populated by Ticket Verification in Control Sheet
+            From control sheet ticket verification
           </ModusWcBadge>
         </div>
       </div>
@@ -285,15 +285,12 @@ export default function TwoColumnOwners({
         <div className="owner-column-card completed-column">
           <div className="column-header completed-head">
             <div className="column-header-title">
-              <div className="column-icon-bubble completed">
-                <ModusWcIcon name="shield" size="md" decorative />
-              </div>
               <div className="column-header-text">
-                <h3>Completed Owners</h3>
-                <p>Verified ticket numbers only — incomplete controls are listed on the right</p>
+                <h3>Ticketed owners</h3>
+                <p>Controls with verified ticket numbers. Incomplete items stay on the right.</p>
               </div>
             </div>
-            <span className="column-count completed" aria-label={`${completedOwners.length} completed owners`}>
+            <span className="column-count completed" aria-label={`${completedOwners.length} ticketed owners`}>
               {completedOwners.length}
             </span>
           </div>
@@ -336,7 +333,7 @@ export default function TwoColumnOwners({
                     </div>
 
                     <ModusWcBadge color="success" size="sm" variant="filled">
-                      Completed
+                      Ticketed
                     </ModusWcBadge>
                   </div>
 
@@ -396,15 +393,12 @@ export default function TwoColumnOwners({
         <div className="owner-column-card pending-column">
           <div className="column-header pending-head">
             <div className="column-header-title">
-              <div className="column-icon-bubble pending">
-                <ModusWcIcon name="warning" size="md" decorative />
-              </div>
               <div className="column-header-text">
-                <h3>Didn't Complete Owners</h3>
-                <p>Missing ticket numbers only — completed controls are listed on the left</p>
+                <h3>Missing tickets</h3>
+                <p>Controls without ticket numbers. Ticketed controls stay on the left.</p>
               </div>
             </div>
-            <span className="column-count pending" aria-label={`${pendingOwners.length} incomplete owners`}>
+            <span className="column-count pending" aria-label={`${pendingOwners.length} owners missing tickets`}>
               {pendingOwners.length}
             </span>
           </div>
@@ -447,7 +441,7 @@ export default function TwoColumnOwners({
                     </div>
 
                     <ModusWcBadge color="warning" size="sm" variant="filled">
-                      Incomplete
+                      Missing ticket
                     </ModusWcBadge>
                   </div>
 

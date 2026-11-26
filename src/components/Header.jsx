@@ -12,9 +12,9 @@ export default function Header({ activeTab, setActiveTab }) {
   const { user, logout } = useAuth();
   const tabs = useMemo(
     () => [
-      { label: 'Overview & Owners', icon: 'dashboard', iconPosition: 'left' },
-      { label: 'Control Sheet Matrix', icon: 'table', iconPosition: 'left' },
-      { label: 'Individual Progress', icon: 'person', iconPosition: 'left' },
+      { label: 'Overview', icon: 'dashboard', iconPosition: 'left' },
+      { label: 'Matrix', icon: 'table', iconPosition: 'left' },
+      { label: 'Progress', icon: 'person', iconPosition: 'left' },
       { label: 'Checklist', icon: 'list_bulleted', iconPosition: 'left' },
     ],
     []

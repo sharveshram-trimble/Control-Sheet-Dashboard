@@ -52,22 +52,22 @@ export default function DetailModal({ control, onClose }) {
     >
       <div slot="header" className="detail-modal-header">
         <div className="detail-modal-header-main">
-          <div
-            className={`detail-modal-status-icon ${control?.isCompleted ? 'done' : 'pending'}`}
-          >
-            <ModusWcIcon
-              name={control?.isCompleted ? 'check_circle' : 'warning'}
-              size="md"
-              decorative
-            />
-          </div>
           <div>
-            <strong>{control?.['Control ID'] || 'Control'}</strong>
-            <p>
+            <p className="detail-modal-kicker">
               {control?.['Application Name'] || '—'}
-              {control?.['Sub-Process'] ? ` • ${control['Sub-Process']}` : ''}
+              {control?.['Sub-Process'] ? ` · ${control['Sub-Process']}` : ''}
             </p>
+            <strong className="detail-modal-id">
+              {control?.['Control ID'] || 'Control'}
+            </strong>
           </div>
+          <ModusWcBadge
+            size="sm"
+            color={control?.isCompleted ? 'success' : 'warning'}
+            variant="filled"
+          >
+            {control?.isCompleted ? 'Ticketed' : 'Missing ticket'}
+          </ModusWcBadge>
         </div>
       </div>
 
@@ -78,55 +78,48 @@ export default function DetailModal({ control, onClose }) {
           <div className="detail-ticket-info">
             <ModusWcIcon name="ticket" size="md" decorative />
             <div>
-              <span className="detail-field-label">Control Sheet Ticket Number</span>
+              <span className="detail-field-label">Ticket number</span>
               <div className="detail-ticket-value">
-                {control?.['TICKET NUMBER'] || 'Missing Ticket Number in Sheet'}
+                {control?.['TICKET NUMBER'] || 'Not on control sheet'}
               </div>
             </div>
           </div>
-          <ModusWcBadge
-            size="sm"
-            color={control?.isCompleted ? 'success' : 'warning'}
-            variant="filled"
-          >
-            {control?.isCompleted ? 'Verified' : 'Pending Verification'}
-          </ModusWcBadge>
         </div>
 
-        <div className="detail-meta-grid">
+        <dl className="detail-meta-grid">
           <div className="detail-meta-tile">
-            <span className="detail-field-label">Control Owner</span>
-            <div className="detail-meta-value">
+            <dt className="detail-field-label">Control owner</dt>
+            <dd className="detail-meta-value">
               {control?.['Control Owner'] || '—'}
-            </div>
+            </dd>
           </div>
           <div className="detail-meta-tile">
-            <span className="detail-field-label">Frequency / Type</span>
-            <div className="detail-meta-value">
-              {control?.['Control Frequency'] || 'N/A'} •{' '}
+            <dt className="detail-field-label">Frequency / type</dt>
+            <dd className="detail-meta-value">
+              {control?.['Control Frequency'] || 'N/A'} ·{' '}
               {control?.['Control Type'] || 'N/A'}
-            </div>
+            </dd>
           </div>
-        </div>
+        </dl>
 
-        <div>
-          <h4 className="detail-field-label">Control Title</h4>
+        <div className="detail-block">
+          <h4 className="detail-field-label">Control title</h4>
           <div className="detail-title-box">
             {control?.['Control Title'] || '—'}
           </div>
         </div>
 
-        <div hidden={!hasAudit}>
+        <div className="detail-block" hidden={!hasAudit}>
           <h4 className="detail-field-label detail-danger-label">
-            Audit Issue from FY 25
+            Audit issue (FY 25)
           </h4>
           <div className="detail-audit-box">
             {control?.['Audit Issue from FY 25']}
           </div>
         </div>
 
-        <div>
-          <h4 className="detail-field-label">Evidence Folders (Google Drive)</h4>
+        <div className="detail-block">
+          <h4 className="detail-field-label">Evidence folders</h4>
           <div className="detail-drive-grid">
             {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
               const link = control?.[`Drive Link ${q}`];
@@ -139,11 +132,11 @@ export default function DetailModal({ control, onClose }) {
                     className="detail-drive-link"
                     hidden={!link}
                   >
-                    <span>{q} Folder</span>
+                    <span>{q}</span>
                     <ModusWcIcon name="launch" size="xs" decorative />
                   </a>
                   <div className="detail-drive-empty" hidden={Boolean(link)}>
-                    {q} N/A
+                    {q} — none
                   </div>
                 </div>
               );

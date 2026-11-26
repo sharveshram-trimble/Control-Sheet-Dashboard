@@ -7,6 +7,13 @@ import ControlSheetTable from './components/ControlSheetTable';
 import ProcessAnalytics from './components/ProcessAnalytics';
 import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
+import { initialWorkflowData } from './data/initialData';
+
+const isUiPreview =
+  import.meta.env.DEV &&
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('uiPreview');
+
 const TOAST_META = {
   success: { variant: 'success', title: 'Success' },
   warning: { variant: 'warning', title: 'Notice' },
@@ -16,7 +23,10 @@ const TOAST_META = {
 
 export default function App() {
   // Empty until the n8n production webhook responds (no executions-API bootstrap).
-  const [items, setItems] = useState([]);
+  // DEV ?uiPreview=1 seeds sample rows so UI surfaces can be reviewed offline.
+  const [items, setItems] = useState(() =>
+    isUiPreview ? initialWorkflowData : []
+  );
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedControl, setSelectedControl] = useState(null);
   const [checklistFocusControl, setChecklistFocusControl] = useState(null);
@@ -252,7 +262,7 @@ export default function App() {
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="main-content">
-        <HeroProgress items={items} stats={stats} />
+        <HeroProgress stats={stats} />
 
         {activeTab === 'overview' && (
           <TwoColumnOwners

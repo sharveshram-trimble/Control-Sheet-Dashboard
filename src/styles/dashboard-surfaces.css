@@ -1,0 +1,690 @@
+/*
+  Full-surface language for the ITGC dashboard.
+  Complements tokens.css — replaces generic card-farm chrome with
+  structure-led Trimble operations UI (status denser than decoration).
+*/
+
+/* ---- App chrome ---- */
+.main-content {
+  gap: 1.25rem;
+  padding: 1.25rem clamp(1rem, 2vw, 1.5rem) 2rem;
+}
+
+/* ---- Status rail (hero replacement) ---- */
+.status-rail,
+.hero-card {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1.1fr) minmax(0, 1.6fr);
+  gap: 1.5rem 2rem;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--trimble-blue);
+  border-radius: 0;
+  box-shadow: none;
+  position: relative;
+  overflow: visible;
+}
+
+.status-rail::before,
+.hero-card::before {
+  display: none;
+}
+
+.status-rail-primary,
+.progress-showcase {
+  display: flex;
+  align-items: center;
+  gap: 1.15rem;
+  padding: 0;
+  border: 0;
+}
+
+.status-rail-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--trimble-blue);
+}
+
+.progress-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.progress-sub {
+  font-size: 0.8125rem;
+  color: var(--slate);
+  max-width: 36ch;
+  line-height: 1.45;
+}
+
+.progress-highlight {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--connect);
+}
+
+.radial-container {
+  width: 112px;
+  height: 112px;
+}
+
+.radial-svg {
+  width: 112px;
+  height: 112px;
+}
+
+.radial-bg {
+  stroke: var(--border-light);
+  stroke-width: 8;
+}
+
+.radial-bar {
+  stroke: var(--trimble-blue);
+  stroke-width: 8;
+  transition: stroke-dashoffset var(--transition-panel);
+}
+
+.radial-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.radial-label {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--slate);
+}
+
+.status-metrics,
+.stats-tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--border-light);
+  background: var(--field);
+  min-width: 0;
+}
+
+.status-metric,
+.stat-tile {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: background var(--transition-fast);
+}
+
+.status-metric:nth-child(2n),
+.stat-tile:nth-child(2n) {
+  border-right: 0;
+}
+
+.status-metric:nth-child(-n + 2),
+.stat-tile:nth-child(-n + 2) {
+  border-bottom: 1px solid var(--border-light);
+}
+
+.status-metric:hover,
+.stat-tile:hover {
+  transform: none;
+  box-shadow: none;
+  background: rgba(0, 99, 163, 0.04);
+  border-color: transparent;
+}
+
+.status-metric dt,
+.stat-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--slate);
+}
+
+.status-metric dd,
+.stat-number {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.status-metric.is-success dd,
+.stat-number.text-success {
+  color: var(--signal-ok);
+}
+
+.status-metric.is-warning dd,
+.stat-number.text-warning {
+  color: var(--warning);
+}
+
+.status-metric-note,
+.stat-footer {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.stat-icon {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .status-rail,
+  .hero-card {
+    grid-template-columns: 1fr;
+  }
+
+  .status-rail-primary,
+  .progress-showcase {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+  }
+}
+
+@media (max-width: 520px) {
+  .status-metrics,
+  .stats-tiles-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-metric,
+  .stat-tile {
+    border-right: 0;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .status-metric:nth-child(-n + 2),
+  .stat-tile:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .status-metric:last-child,
+  .stat-tile:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* ---- Section headers ---- */
+.section-header-title h2,
+.table-controls-bar h2,
+.table-controls-bar h3,
+.analytics-panel-header h3,
+.checklist-header-copy h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.section-header-title .info-badge {
+  border-radius: 0;
+  background: var(--field);
+  border-color: var(--border-light);
+  color: var(--slate);
+  font-weight: 600;
+}
+
+.checklist-header-copy p,
+.analytics-panel-header p,
+.section-header-title + p {
+  color: var(--slate);
+  font-size: 0.8125rem;
+  max-width: 62ch;
+}
+
+/* ---- Owner columns ---- */
+.owner-column-card,
+.table-section-card,
+.analytics-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.owner-column-card.completed-column {
+  border-top: 3px solid var(--signal-ok);
+}
+
+.owner-column-card.pending-column {
+  border-top: 3px solid var(--warning);
+}
+
+.owner-item-card {
+  border: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--bg-card);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.owner-item-card:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: var(--trimble-blue);
+  background: rgba(0, 99, 163, 0.03);
+}
+
+.owner-item-card.is-completed {
+  border-left: 3px solid var(--signal-ok);
+}
+
+.owner-item-card.is-pending {
+  border-left: 3px solid var(--warning);
+}
+
+.owner-avatar {
+  border-radius: 0;
+  font-weight: 700;
+}
+
+.owner-avatar.completed {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.owner-avatar.pending {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.owner-details h4 {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.owner-status-tag {
+  border-radius: 0;
+  font-weight: 600;
+}
+
+.control-chip,
+.owner-controls-chips .control-chip {
+  border-radius: 0;
+  border: 1px solid var(--border-light);
+  background: var(--field);
+}
+
+.control-chip:hover {
+  border-color: var(--trimble-blue);
+  color: var(--connect);
+}
+
+/* ---- Tables ---- */
+.table-controls-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+  background: var(--field);
+  border-bottom: 1px solid var(--border-light);
+  padding: 1rem 1.25rem;
+}
+
+.table-controls-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.table-controls-heading h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.table-controls-heading p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--slate);
+  font-variant-numeric: tabular-nums;
+}
+
+.table-filters-group,
+.table-actions-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-chip-btn {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.filter-chip-btn.active {
+  background: var(--connect);
+  border-color: var(--connect);
+  box-shadow: none;
+}
+
+.data-table th {
+  background: var(--field);
+  color: var(--slate);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid var(--border-medium);
+}
+
+.data-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(0, 99, 163, 0.04);
+}
+
+.data-table tbody tr.row-completed {
+  background: rgba(30, 138, 68, 0.04);
+}
+
+.data-table tbody tr.row-completed:hover {
+  background: rgba(30, 138, 68, 0.08);
+}
+
+.checklist-control-link {
+  color: var(--connect);
+  font-weight: 700;
+  text-decoration-thickness: 1px;
+}
+
+/* ---- Column headers (owners) ---- */
+.column-header {
+  border-bottom: 1px solid var(--border-light);
+  padding: 1rem 1.15rem;
+  background: var(--field);
+}
+
+.column-icon-bubble {
+  display: none;
+}
+
+.column-header-text h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.column-header-text p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--slate);
+  max-width: 42ch;
+  line-height: 1.4;
+}
+
+.column-count {
+  border-radius: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* ---- Progress / analytics ---- */
+.subprocess-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.subprocess-tile {
+  margin: 0;
+  padding: 1.1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.subprocess-kicker {
+  margin: 0 0 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--trimble-blue);
+}
+
+.subprocess-tile h3 {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.subprocess-desc {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--slate);
+  line-height: 1.45;
+  max-width: 48ch;
+}
+
+.app-breakdown-card {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  padding: 0.85rem 1rem;
+}
+
+.app-breakdown-card.done {
+  border-left: 3px solid var(--signal-ok);
+}
+
+.app-breakdown-card.partial {
+  border-left: 3px solid var(--trimble-blue);
+}
+
+.app-breakdown-card.idle {
+  border-left: 3px solid var(--border-medium);
+}
+
+.app-name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.owner-progress-card {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+}
+
+@media (max-width: 720px) {
+  .subprocess-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.owner-progress-card.done {
+  border-left: 3px solid var(--signal-ok);
+}
+
+.owner-progress-card.partial {
+  border-left: 3px solid var(--trimble-blue);
+}
+
+.owner-progress-card.pending {
+  border-left: 3px solid var(--warning);
+}
+
+.progress-track {
+  background: var(--border-subtle);
+  border-radius: 0;
+  height: 0.4rem;
+}
+
+.progress-fill {
+  border-radius: 0;
+  background: var(--trimble-blue);
+}
+
+.progress-fill.success {
+  background: var(--signal-ok);
+}
+
+.progress-fill.warning {
+  background: var(--warning);
+}
+
+/* ---- Detail modal ---- */
+.control-detail-modal .modus-wc-modal-box {
+  border-radius: 0;
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-lg);
+}
+
+.detail-modal-header-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+
+.detail-modal-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  color: var(--slate);
+}
+
+.detail-modal-id {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-modal-status-icon {
+  display: none;
+}
+
+.detail-ticket-box,
+.detail-meta-tile,
+.detail-block,
+.detail-title-box,
+.detail-audit-box,
+.detail-drive-cell {
+  border-radius: 0;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.detail-meta-tile {
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  background: var(--field);
+  border: 1px solid var(--border-light);
+}
+
+.detail-meta-tile dt,
+.detail-meta-tile .detail-field-label {
+  margin: 0 0 0.25rem;
+}
+
+.detail-meta-tile dd,
+.detail-meta-value {
+  margin: 0;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.detail-block {
+  margin-bottom: 1rem;
+}
+
+.detail-field-label {
+  margin: 0 0 0.35rem;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--slate);
+}
+
+/* ---- Assist / checklist panel ---- */
+.assist-panel {
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid var(--border-light);
+  border-left: 4px solid var(--trimble-blue);
+}
+
+.assist-panel-auth {
+  border-radius: 0;
+  border: 1px solid var(--border-light);
+  background: var(--field);
+}
+
+.assist-agent-transcript,
+.assist-sdk-stub {
+  border: 1px solid var(--border-light);
+  border-radius: 0;
+  background: var(--field);
+}
+
+/* ---- Motion: one deliberate moment on row/panel focus ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .owner-item-card:focus-within,
+  .data-table tbody tr:focus-within {
+    outline: 2px solid rgba(1, 154, 235, 0.35);
+    outline-offset: 1px;
+  }
+
+  .status-rail {
+    animation: status-rail-in var(--transition-panel) both;
+  }
+
+  @keyframes status-rail-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.35rem);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

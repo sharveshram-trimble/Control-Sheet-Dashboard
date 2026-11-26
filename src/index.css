@@ -536,10 +536,10 @@ body {
   justify-content: center;
 }
 
-.stat-icon.blue { background: rgba(0, 99, 165, 0.1); color: var(--primary-blue); }
-.stat-icon.green { background: rgba(5, 150, 105, 0.1); color: var(--success); }
-.stat-icon.amber { background: rgba(217, 119, 6, 0.1); color: var(--warning); }
-.stat-icon.purple { background: rgba(124, 58, 237, 0.1); color: #7C3AED; }
+.stat-icon.blue { background: rgba(0, 99, 163, 0.1); color: var(--trimble-blue); }
+.stat-icon.green { background: var(--success-bg); color: var(--success-text); }
+.stat-icon.amber { background: var(--warning-bg); color: var(--warning-text); }
+.stat-icon.slate { background: var(--field); color: var(--slate); }
 
 .stat-number {
   font-family: var(--font-heading);
