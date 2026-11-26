@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { ModusWcButton, ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
+import { fadeUp } from '../motion/presets';
 
 export default function LoginScreen({
   onLogin,
@@ -9,14 +10,15 @@ export default function LoginScreen({
   missingHint = '',
 }) {
   const reduceMotion = useReducedMotion();
+  const enter = fadeUp(reduceMotion, 12);
 
   return (
     <div className="tid-login-screen">
       <motion.div
         className="tid-login-stage"
-        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.48, ease: [0.2, 0, 0, 1] }}
+        initial={enter.initial}
+        animate={enter.animate}
+        transition={{ ...enter.transition, duration: 0.48 }}
       >
         <img
           className="tid-login-logo"

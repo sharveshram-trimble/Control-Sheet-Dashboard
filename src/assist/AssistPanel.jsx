@@ -116,12 +116,15 @@ export default function AssistPanel({
     user,
   } = useAuth();
   const iframeRef = useRef(null);
+  const panelRef = useRef(null);
+  const returnFocusRef = useRef(null);
   const readyRef = useRef(false);
   const pendingAutoStartRef = useRef(false);
   const latestTokenRef = useRef('');
   const tokenRejectedRef = useRef(false);
   const unauthorizedReloadsRef = useRef(0);
   const runAbortRef = useRef(null);
+  const runGuardRef = useRef(false);
   const controlRef = useRef(control);
   const quarterRef = useRef(initialQuarter || currentCalendarQuarter());
   const onResultRef = useRef(onChecklistResult);
@@ -177,9 +180,23 @@ export default function AssistPanel({
   }, [loginWithRedirect, useAgentsApi]);
 
   useEffect(() => {
-    if (open) setEverOpened(true);
-    if (open) unauthorizedReloadsRef.current = 0;
-  }, [open]);
+    if (open) {
+      setEverOpened(true);
+      unauthorizedReloadsRef.current = 0;
+      returnFocusRef.current = document.activeElement;
+      window.setTimeout(() => {
+        const closeBtn = panelRef.current?.querySelector?.(
+          '[aria-label="Close Assist panel"]'
+        );
+        closeBtn?.focus?.();
+      }, 40);
+    } else if (everOpened) {
+      const el = returnFocusRef.current;
+      if (el && typeof el.focus === 'function') {
+        window.setTimeout(() => el.focus(), 0);
+      }
+    }
+  }, [open, everOpened]);
 
   const environment = assist.environment;
   const chatOrigin = useMemo(
@@ -573,6 +590,7 @@ export default function AssistPanel({
   }, [everOpened, assist.configured, chatOrigin, publishResult, useAgentsApi]);
 
   const startAudit = useCallback(async () => {
+    if (runGuardRef.current || agentRunning) return;
     if (!control) {
       setStatus('Select a completed control first.');
       return;
@@ -603,6 +621,7 @@ export default function AssistPanel({
     }
 
     if (useAgentsApi) {
+      runGuardRef.current = true;
       runAbortRef.current?.abort();
       const controller = new AbortController();
       runAbortRef.current = controller;
@@ -654,6 +673,7 @@ export default function AssistPanel({
         setStatus(err?.message || 'Agent run failed.');
       } finally {
         setAgentRunning(false);
+        runGuardRef.current = false;
       }
       return;
     }
@@ -697,6 +717,7 @@ export default function AssistPanel({
     resolveAccessToken,
     useAgentsApi,
     publishResult,
+    agentRunning,
   ]);
 
   useEffect(() => {
@@ -734,6 +755,7 @@ export default function AssistPanel({
 
   return (
     <aside
+      ref={panelRef}
       className={`assist-panel${open ? '' : ' assist-panel--collapsed'}${agentRunning ? ' is-running' : ''}`}
       aria-label="Run checklist with Trimble agent"
       hidden={!open}
@@ -780,14 +802,18 @@ export default function AssistPanel({
           variant="filled"
           color="primary"
           size="sm"
-          customClass="run-checklist-btn cta-sheen ripple-host"
+          customClass="run-checklist-btn cta-sheen ripple-host assist-run-cta"
           disabled={!canRunChecklist || needsAssistReauth || agentRunning}
+          aria-busy={agentRunning || undefined}
           onButtonClick={() => {
+            if (runGuardRef.current || agentRunning) return;
             void startAudit();
           }}
         >
           <ModusWcIcon name="check_circle" size="xs" decorative />
-          {agentRunning ? 'Running…' : 'Run Checklist'}
+          <span className="assist-run-cta-label">
+            {agentRunning ? 'Running…' : 'Run Checklist'}
+          </span>
         </ModusWcButton>
         <ModusWcButton
           variant="outline"

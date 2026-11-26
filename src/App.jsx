@@ -10,6 +10,7 @@ import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
 import SurfaceSkeleton from './components/SurfaceSkeleton';
 import { initialWorkflowData } from './data/initialData';
+import { duration, easeBrand, fadeUp } from './motion/presets';
 
 const isUiPreview =
   import.meta.env.DEV &&
@@ -269,6 +270,17 @@ export default function App() {
           a.name.localeCompare(b.name)
       );
 
+    const criticalPending = items
+      .filter((i) => !i.isCompleted)
+      .slice(0, 5)
+      .map((i) => ({
+        id: i.id || i['Control ID'],
+        controlId: i['Control ID'],
+        owner: i['Control Owner'],
+        app: i['Application Name'],
+        item: i,
+      }));
+
     return {
       stats: {
         totalControls,
@@ -278,6 +290,7 @@ export default function App() {
         totalOwners: ownerList.length,
         completedOwnersCount: completedOwnersList.length,
         pendingOwnersCount: pendingOwnersList.length,
+        criticalPending,
       },
       ownerStats: ownerList,
     };
@@ -319,16 +332,19 @@ export default function App() {
           </div>
         ) : (
           <>
-            {activeTab !== 'checklist' ? <HeroProgress stats={stats} /> : null}
+            {activeTab !== 'checklist' ? (
+              <HeroProgress
+                stats={stats}
+                onSelectControl={setSelectedControl}
+              />
+            ) : null}
 
             <AnimatePresence mode="sync">
               <motion.div
                 key={activeTab}
                 className="tab-panel"
-                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
-                transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+                {...fadeUp(reduceMotion, 10)}
+                transition={{ duration: duration.ui, ease: easeBrand }}
               >
                 {activeTab === 'overview' && (
                   <TwoColumnOwners

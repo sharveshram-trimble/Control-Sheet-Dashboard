@@ -18,6 +18,13 @@ import {
   targetSheetForQuarter,
 } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
+import {
+  chipPop,
+  drawerSpring,
+  fadeUp,
+  staggerContainer,
+  staggerItem,
+} from '../motion/presets';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -32,8 +39,6 @@ const FILTERS = [
   { id: 'blocked', label: 'Blocked' },
   { id: 'done', label: 'Has OUTPUT' },
 ];
-
-const easeBrand = [0.2, 0, 0, 1];
 
 function isHttpUrl(value) {
   try {
@@ -92,20 +97,19 @@ function OutputChip({ status }) {
         ? { className: 'output-chip output-chip--bad', icon: 'warning', label: 'Failed' }
         : {
             className: 'output-chip output-chip--idle',
-            icon: null,
+            icon: 'time',
             label: 'Pending',
           };
+  const pop = chipPop(reduceMotion);
 
   return (
     <motion.span
       key={chip.label}
       className={chip.className}
       aria-label={status ? undefined : 'Output pending'}
-      initial={reduceMotion ? false : { scale: 0.96, opacity: 0.7 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.22, ease: easeBrand }}
+      {...pop}
     >
-      {chip.icon ? <ModusWcIcon name={chip.icon} size="xs" decorative /> : null}
+      <ModusWcIcon name={chip.icon} size="xs" decorative />
       {chip.label}
     </motion.span>
   );
@@ -179,28 +183,8 @@ export default function ChecklistView({
     onFocusControlHandled?.();
   }, [focusControl, onFocusControlHandled]);
 
-  const listVariants = {
-    hidden: {},
-    show: {
-      transition: reduceMotion
-        ? { staggerChildren: 0 }
-        : { staggerChildren: 0.05, delayChildren: 0.06 },
-    },
-  };
-
-  const rowVariants = {
-    hidden: reduceMotion
-      ? { opacity: 1, y: 0 }
-      : { opacity: 0, y: 12 },
-    show: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.32, ease: easeBrand },
-    },
-    exit: reduceMotion
-      ? { opacity: 0 }
-      : { opacity: 0, y: -8, transition: { duration: 0.15 } },
-  };
+  const listVariants = staggerContainer(reduceMotion);
+  const emptyMotion = fadeUp(reduceMotion, 8);
 
   return (
     <div className={`checklist-ops${assistOpen ? ' checklist-ops--rail-open' : ''}`}>
@@ -304,9 +288,7 @@ export default function ChecklistView({
               <motion.li
                 key="empty"
                 className="checklist-empty-state"
-                initial={reduceMotion ? false : { opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
+                {...emptyMotion}
               >
                 <h3>No rows match this view</h3>
                 <p>
@@ -337,7 +319,7 @@ export default function ChecklistView({
                   <motion.li
                     key={id}
                     layout={!reduceMotion}
-                    variants={rowVariants}
+                    variants={staggerItem(reduceMotion, index)}
                     initial="hidden"
                     animate="show"
                     exit="exit"
@@ -348,7 +330,6 @@ export default function ChecklistView({
                         ? ' is-selected'
                         : ''
                     }`}
-                    style={{ '--stagger-i': index }}
                   >
                     <div className="checklist-run-top">
                       <div className="checklist-run-id-block">
@@ -444,9 +425,7 @@ export default function ChecklistView({
             animate={{ opacity: 1, x: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 36 }}
             transition={
-              reduceMotion
-                ? { duration: 0.15 }
-                : { type: 'spring', stiffness: 320, damping: 28 }
+              reduceMotion ? { duration: 0.12 } : drawerSpring
             }
           >
             <AssistPanel

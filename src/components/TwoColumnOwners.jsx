@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   ModusWcBadge,
   ModusWcButton,
@@ -10,6 +11,8 @@ import {
 } from '@trimble-oss/moduswebcomponents-react';
 import { hasChecklistSheet } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
+import { staggerContainer, staggerItem } from '../motion/presets';
+import StatusChip from './StatusChip';
 
 const DRAFT_MAIL_MODAL_ID = 'draft-incomplete-mail-modal';
 
@@ -263,6 +266,9 @@ export default function TwoColumnOwners({
       )
   );
 
+  const reduceMotion = useReducedMotion();
+  const listVariants = staggerContainer(reduceMotion);
+
   const getInitials = (name) => {
     if (!name) return '??';
     const parts = name.split(' ');
@@ -309,15 +315,24 @@ export default function TwoColumnOwners({
             />
           </div>
 
-          <div className="owner-cards-list">
+          <motion.div
+            className="owner-cards-list"
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
             {filteredCompleted.length === 0 ? (
               <div className="owner-empty-state">
                 <ModusWcIcon name="check_circle" size="lg" decorative />
                 <p>No completed owners match search</p>
               </div>
             ) : (
-              filteredCompleted.map((owner) => (
-                <div key={`completed-${owner.name}`} className="owner-item-card is-completed">
+              filteredCompleted.map((owner, index) => (
+                <motion.div
+                  key={`completed-${owner.name}`}
+                  className="owner-item-card is-completed"
+                  variants={staggerItem(reduceMotion, index)}
+                >
                   <div className="owner-card-top">
                     <div className="owner-profile">
                       <div className="owner-avatar completed">
@@ -332,9 +347,7 @@ export default function TwoColumnOwners({
                       </div>
                     </div>
 
-                    <ModusWcBadge color="success" size="sm" variant="filled">
-                      Ticketed
-                    </ModusWcBadge>
+                    <StatusChip tone="ok" label="Ticketed" />
                   </div>
 
                   <div className="owner-controls-chips">
@@ -384,10 +397,10 @@ export default function TwoColumnOwners({
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </div>
 
         <div className="owner-column-card pending-column">
@@ -417,15 +430,24 @@ export default function TwoColumnOwners({
             />
           </div>
 
-          <div className="owner-cards-list">
+          <motion.div
+            className="owner-cards-list"
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
             {filteredPending.length === 0 ? (
               <div className="owner-empty-state success">
                 <ModusWcIcon name="check_circle" size="lg" decorative />
                 <p>All owners have verified tickets!</p>
               </div>
             ) : (
-              filteredPending.map((owner) => (
-                <div key={`incomplete-${owner.name}`} className="owner-item-card is-pending">
+              filteredPending.map((owner, index) => (
+                <motion.div
+                  key={`incomplete-${owner.name}`}
+                  className="owner-item-card is-pending"
+                  variants={staggerItem(reduceMotion, index)}
+                >
                   <div className="owner-card-top">
                     <div className="owner-profile">
                       <div className="owner-avatar pending">
@@ -440,9 +462,7 @@ export default function TwoColumnOwners({
                       </div>
                     </div>
 
-                    <ModusWcBadge color="warning" size="sm" variant="filled">
-                      Missing ticket
-                    </ModusWcBadge>
+                    <StatusChip tone="warn" label="Missing ticket" />
                   </div>
 
                   <div className="owner-mail-actions">
@@ -491,10 +511,10 @@ export default function TwoColumnOwners({
                       </button>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
 

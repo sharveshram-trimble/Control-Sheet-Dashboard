@@ -1,17 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import { ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
 
 function useCountUp(target, { duration = 480, enabled = true } = {}) {
   const [value, setValue] = useState(enabled ? 0 : target);
+  const valueRef = useRef(value);
+  const prevTarget = useRef(null);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     if (!enabled) {
       setValue(target);
+      prevTarget.current = target;
       return undefined;
     }
+    if (prevTarget.current === target) return undefined;
+
+    const from = prevTarget.current == null ? 0 : valueRef.current;
+    prevTarget.current = target;
     let raf = 0;
     const start = performance.now();
-    const from = 0;
     const tick = (now) => {
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
@@ -25,7 +36,7 @@ function useCountUp(target, { duration = 480, enabled = true } = {}) {
   return value;
 }
 
-export default function HeroProgress({ stats }) {
+export default function HeroProgress({ stats, onSelectControl }) {
   const {
     totalControls,
     completedControls,
@@ -34,6 +45,7 @@ export default function HeroProgress({ stats }) {
     totalOwners,
     completedOwnersCount,
     pendingOwnersCount,
+    criticalPending = [],
   } = stats;
 
   const reduceMotion = useReducedMotion();
@@ -95,6 +107,31 @@ export default function HeroProgress({ stats }) {
             <span className="progress-highlight">{Math.round(total)}</span> ITGC
             controls have ticket numbers verified.
           </p>
+
+          {criticalPending.length > 0 ? (
+            <div className="status-critical" aria-label="Priority missing tickets">
+              <p className="status-critical-kicker">
+                <ModusWcIcon name="warning" size="xs" decorative />
+                Priority missing tickets
+              </p>
+              <ul className="status-critical-list">
+                {criticalPending.map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className="status-critical-link"
+                      onClick={() => onSelectControl?.(row.item)}
+                    >
+                      {row.controlId}
+                    </button>
+                    <span className="status-critical-meta">
+                      {row.app} · {row.owner}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -86,8 +86,15 @@
 .brand-logo {
   height: 1.75rem;
   width: auto;
-  background: var(--brand-blue);
   border-radius: var(--r-sm);
+}
+
+/* White / reversed logo on dark Trimble strip (no muddy blue box) */
+.brand-logo--on-dark {
+  background: transparent;
+  filter: brightness(0) invert(1);
+  opacity: 0.96;
+  padding: 0;
 }
 
 .brand-kicker {
@@ -154,6 +161,13 @@
   gap: 1rem;
 }
 
+.nav-tabs-shell {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
 .nav-center-tabs modus-wc-tabs [role='tablist'],
 .nav-center-tabs modus-wc-tabs .modus-wc-tabs {
   display: inline-flex;
@@ -161,6 +175,83 @@
   padding: 0.2rem;
   background: var(--surface-2);
   border-radius: var(--r-md);
+}
+
+.nav-tab-ink-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.25rem;
+  padding: 0 0.2rem;
+  pointer-events: none;
+}
+
+.nav-tab-ink-slot {
+  height: 3px;
+  position: relative;
+}
+
+.nav-tab-ink {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0;
+  height: 3px;
+  background: var(--brand-blue);
+  border-radius: 2px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--type-2xs);
+  font-weight: 700;
+  padding: 0.22rem 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--slate);
+  white-space: nowrap;
+}
+
+.status-chip--ok {
+  background: var(--ok-bg);
+  border-color: #4ea646;
+  color: var(--success-text);
+}
+
+.status-chip--warn {
+  background: var(--warn-bg);
+  border-color: #fec157;
+  color: var(--warn);
+}
+
+.status-chip--bad {
+  background: var(--bad-bg);
+  border-color: #e86363;
+  color: var(--danger-text);
+}
+
+.status-chip--info {
+  background: var(--brand-blue-pale);
+  border-color: var(--brand-blue-light);
+  color: var(--brand-blue-dark);
+}
+
+.status-chip--idle {
+  background: var(--surface-2);
+  color: var(--slate);
+}
+
+.status-chip--compact {
+  padding: 0.15rem 0.4rem;
+}
+
+.status-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--type-xs);
+  font-weight: 700;
 }
 
 /* Dark strip buttons */
@@ -387,6 +478,56 @@
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0;
+}
+
+.status-critical {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.status-critical-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--type-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--warn);
+  margin-bottom: 0.35rem;
+}
+
+.status-critical-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.status-critical-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  font-size: var(--type-xs);
+}
+
+.status-critical-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--brand-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.status-critical-meta {
+  color: var(--slate);
 }
 
 /* ---- Work surfaces / owners ---- */
@@ -1390,6 +1531,34 @@ modus-wc-button.run-checklist-btn button,
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   box-shadow: var(--panel-shadow);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .control-detail-modal--enter .modus-wc-modal-box,
+  .control-detail-modal[open] .modus-wc-modal-box {
+    animation: enter-up var(--t-panel) both;
+  }
+}
+
+.assist-run-cta,
+.assist-run-cta button {
+  min-width: 9.5rem;
+}
+
+.assist-run-cta-label {
+  display: inline-block;
+  min-width: 6.5rem;
+  text-align: left;
+}
+
+kbd {
+  font: inherit;
+  font-size: var(--type-2xs);
+  font-weight: 700;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--slate);
 }
 
 .detail-modal-header-main {
