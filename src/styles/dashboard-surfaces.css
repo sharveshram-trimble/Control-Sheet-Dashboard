@@ -1715,6 +1715,10 @@
   border-top: 1px solid var(--surface-3);
 }
 
+.checklist-run-cta {
+  display: inline-flex;
+}
+
 .checklist-block-reason,
 .checklist-ready-hint {
   display: inline-flex;

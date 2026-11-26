@@ -22,7 +22,7 @@ export default function Header({
   syncError = null,
   onRetrySync,
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const reduceMotion = useReducedMotion();
   const tabRefs = useRef([]);
   const { scrollYProgress } = useScroll();
@@ -173,18 +173,20 @@ export default function Header({
               {displayName}
             </span>
           ) : null}
-          <ModusWcButton
-            color="tertiary"
-            variant="outlined"
-            size="xs"
-            aria-label="Sign out"
-            onButtonClick={async () => {
-              await logout();
-            }}
-          >
-            <ModusWcIcon name="sign_out" size="xs" decorative />
-            Sign out
-          </ModusWcButton>
+          {isAuthenticated ? (
+            <ModusWcButton
+              color="tertiary"
+              variant="outlined"
+              size="xs"
+              aria-label="Sign out"
+              onButtonClick={async () => {
+                await logout();
+              }}
+            >
+              <ModusWcIcon name="sign_out" size="xs" decorative />
+              Sign out
+            </ModusWcButton>
+          ) : null}
         </div>
       </div>
 

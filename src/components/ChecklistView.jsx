@@ -393,18 +393,28 @@ export default function ChecklistView({
                           Ready for {quarter}
                         </span>
                       )}
-                      <ModusWcButton
-                        variant="filled"
-                        color="primary"
-                        size="sm"
-                        customClass="run-checklist-btn cta-sheen ripple-host"
-                        disabled={!readiness.canRun}
-                        aria-label={`Run checklist for ${item['Control ID']}`}
-                        onButtonClick={() => openChecklist(item)}
+                      <span
+                        className="checklist-run-cta"
+                        onClick={(e) => {
+                          // Native fallback when Modus buttonClick does not fire.
+                          if (!readiness.canRun) return;
+                          if (e.target?.closest?.('a')) return;
+                          openChecklist(item);
+                        }}
                       >
-                        <ModusWcIcon name="check_circle" size="xs" decorative />
-                        Run Checklist
-                      </ModusWcButton>
+                        <ModusWcButton
+                          variant="filled"
+                          color="primary"
+                          size="sm"
+                          customClass="run-checklist-btn cta-sheen ripple-host"
+                          disabled={!readiness.canRun}
+                          aria-label={`Run checklist for ${item['Control ID']}`}
+                          onButtonClick={() => openChecklist(item)}
+                        >
+                          <ModusWcIcon name="check_circle" size="xs" decorative />
+                          Run Checklist
+                        </ModusWcButton>
+                      </span>
                     </div>
                   </motion.li>
                 );

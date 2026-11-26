@@ -39,6 +39,7 @@ import {
   missingAgentsScope,
   runAgentWithUserToken,
 } from './agentApi';
+import { stashPendingChecklistRun } from './pendingChecklistRun';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -609,6 +610,26 @@ export default function AssistPanel({
       return;
     }
 
+    if (!isAuthenticated) {
+      stashPendingChecklistRun({
+        controlId: control.id || control['Control ID'],
+        quarter,
+        autoStart: true,
+      });
+      setStatus(
+        'Sign-in required — opening Trimble ID, then the checklist run will resume.'
+      );
+      try {
+        await loginWithRedirect();
+      } catch (err) {
+        setStatus(
+          err?.message ||
+            'Could not start Trimble ID sign-in. Open the login screen, then Run Checklist again.'
+        );
+      }
+      return;
+    }
+
     let accessToken = '';
     try {
       accessToken = await resolveAccessToken({
@@ -616,7 +637,14 @@ export default function AssistPanel({
       });
     } catch (err) {
       setStatus(err?.message || 'Auth is not ready.');
-      if (err?.code === 'ASSIST_SCOPES_MISSING') setNeedsAssistReauth(true);
+      if (err?.code === 'ASSIST_SCOPES_MISSING') {
+        setNeedsAssistReauth(true);
+        stashPendingChecklistRun({
+          controlId: control.id || control['Control ID'],
+          quarter,
+          autoStart: true,
+        });
+      }
       return;
     }
 
@@ -718,6 +746,8 @@ export default function AssistPanel({
     useAgentsApi,
     publishResult,
     agentRunning,
+    isAuthenticated,
+    loginWithRedirect,
   ]);
 
   useEffect(() => {
@@ -732,11 +762,20 @@ export default function AssistPanel({
 
   useEffect(() => {
     if (!open || !pendingAutoStartRef.current) return;
+    // Wait for auth + scopes before consuming the auto-start latch.
+    if (!isAuthenticated) return;
     if (needsAssistReauth) return;
     if (!useAgentsApi && !iframeReady) return;
     pendingAutoStartRef.current = false;
-    startAudit();
-  }, [open, iframeReady, startAudit, needsAssistReauth, useAgentsApi]);
+    void startAudit();
+  }, [
+    open,
+    iframeReady,
+    startAudit,
+    needsAssistReauth,
+    useAgentsApi,
+    isAuthenticated,
+  ]);
 
   const drivePreview = control
     ? driveLinkForQuarter(control, quarter)

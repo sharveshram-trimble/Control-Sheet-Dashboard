@@ -9,6 +9,7 @@ import ProcessAnalytics from './components/ProcessAnalytics';
 import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
 import SurfaceSkeleton from './components/SurfaceSkeleton';
+import { takePendingChecklistRun } from './assist/pendingChecklistRun';
 import { initialWorkflowData } from './data/initialData';
 import { duration, easeBrand, fadeUp } from './motion/presets';
 
@@ -204,6 +205,19 @@ export default function App() {
     }, 30000);
     return () => clearInterval(timer);
   }, [fetchLiveData]);
+
+  // After Trimble ID login, resume a checklist run that was interrupted by OAuth.
+  useEffect(() => {
+    if (!items.length) return;
+    const pending = takePendingChecklistRun();
+    if (!pending?.controlId) return;
+    const match = items.find(
+      (row) => String(row.id || row['Control ID'] || '') === pending.controlId
+    );
+    if (!match) return;
+    setChecklistFocusControl(match);
+    setActiveTab('checklist');
+  }, [items]);
 
   const { stats, ownerStats } = useMemo(() => {
     const totalControls = items.length;
