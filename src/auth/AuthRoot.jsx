@@ -4,20 +4,13 @@ import {
   TIDProvider,
   useAuth,
 } from '@trimble-oss/trimble-id-react';
-import App from '../App';
+import AppRoutes from '../AppRoutes';
 import tidClient from './tidClient';
 import { getTidAuthConfig } from './tidConfig';
-import LoginScreen from './LoginScreen';
+import LoginScreen, { AuthStatusScreen } from './LoginScreen';
 
-function AuthLoading({ message = 'Checking Trimble ID session…' }) {
-  return (
-    <div className="tid-login-screen">
-      <div className="tid-login-atmosphere" aria-hidden="true" />
-      <div className="tid-login-stage tid-login-card-muted">
-        <p>{message}</p>
-      </div>
-    </div>
-  );
+function AuthLoading({ message = 'Checking your Trimble ID session…' }) {
+  return <AuthStatusScreen message={message} />;
 }
 
 function normalizePath(returnTo = '/') {
@@ -118,7 +111,7 @@ function AuthenticatedApp({ path, navigate }) {
 
   return (
     <AuthenticationGuard
-      renderComponent={<App />}
+      renderComponent={<AppRoutes />}
       loader={<AuthLoading />}
     />
   );
@@ -164,7 +157,7 @@ function AuthApp() {
 function UiPreviewApp() {
   const handleRedirect = useCallback(() => {}, []);
   if (!tidClient) {
-    return <App />;
+    return <AppRoutes />;
   }
   return (
     <TIDProvider
@@ -172,7 +165,7 @@ function UiPreviewApp() {
       checkRedirectUrlMatch={false}
       onRedirectCallback={handleRedirect}
     >
-      <App />
+      <AppRoutes />
     </TIDProvider>
   );
 }

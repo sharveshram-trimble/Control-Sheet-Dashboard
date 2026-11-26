@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import https from 'https';
 import fs from 'fs';
@@ -629,7 +630,7 @@ function n8nLiveApiPlugin() {
 // HTTPS is required so Trimble Assist (embedded.aws-stage.trimble-ai.com) can
 // iframe into this app — stage Chat UI CSP frame-ancestors exclude http://localhost.
 export default defineConfig({
-  plugins: [react(), basicSsl(), n8nLiveApiPlugin()],
+  plugins: [react(), tailwindcss(), basicSsl(), n8nLiveApiPlugin()],
   optimizeDeps: {
     // Prefer the iframe TypeScript SDK (ESM). The React chat package ships a
     // Rolldown bundle that calls require("react") and crashes in the browser.

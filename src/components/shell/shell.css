@@ -1,0 +1,117 @@
+/*
+ * Modus app shell CSS — pairs with templates/AppShell.tsx.
+ * Import AFTER '@trimble-oss/moduswebcomponents/modus-wc-styles.css' and 'tailwindcss'.
+ * Keep it unlayered: Modus rules are unlayered and beat anything in @layer.
+ * Breakpoints here MUST match shellLayout.ts (PUSH_LAYOUT_MIN_PX = 1024).
+ */
+
+/* [WHY-11] <main> owns scroll: cap the viewport and carry min-height:0 through every flex link. */
+html,
+body {
+  height: 100%;
+  max-height: 100dvh;
+  margin: 0;
+  overflow: hidden;
+  background-color: var(--modus-wc-color-base-page);
+  color: var(--modus-wc-color-base-content);
+}
+
+#root {
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--modus-wc-color-base-page);
+}
+
+#root > modus-wc-theme-provider {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-shell {
+  --app-navbar-height: 56px; /* overwritten by the ResizeObserver in AppShell */
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.app-shell .app-navbar-host {
+  position: relative;
+  z-index: 120;
+  flex-shrink: 0;
+}
+
+.app-shell .app-body-row {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* [WHY-12] Fixed rail wrapper width tracks state. A constant 256px wrapper on push+collapsed
+   leaves an invisible column over <main> that eats clicks. z-index above the navbar host. */
+.app-shell .side-rail-wrapper {
+  position: fixed;
+  left: 0;
+  top: var(--app-navbar-height);
+  height: calc(100dvh - var(--app-navbar-height));
+  z-index: 130;
+  overflow: hidden;
+  width: 4rem;
+}
+.app-shell.side-nav-expanded .side-rail-wrapper {
+  width: 256px;
+}
+.app-shell.side-nav-overlay-collapsed .side-rail-wrapper {
+  width: 0;
+  pointer-events: none;
+}
+.app-shell .side-rail-wrapper modus-wc-side-navigation {
+  height: 100%;
+}
+
+.app-shell #main-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  background-color: var(--modus-wc-color-base-page);
+}
+
+/* [WHY-13] Push band: reserve rail width before Stencil runs (it can miss <main> on first paint). */
+@media (min-width: 1024px) {
+  .app-shell #main-content {
+    margin-left: 4rem;
+  }
+  .app-shell.side-nav-expanded #main-content {
+    margin-left: 256px;
+  }
+}
+
+/* [WHY-14] Overlay band: main is full-bleed whether the drawer is open or closed (no horizontal jog). */
+@media (max-width: 1023px) {
+  .app-shell #main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* [WHY-8] Navbar center slot on narrow widths. */
+.app-shell modus-wc-navbar .app-shell-navbar-center.is-collapsed {
+  display: none !important;
+}
+
+/* Modus already insets the menu-item button; host padding would double the gutter. */
+modus-wc-side-navigation modus-wc-menu-item {
+  padding-inline: 0;
+}

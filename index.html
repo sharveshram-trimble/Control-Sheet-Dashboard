@@ -1,11 +1,52 @@
 <!doctype html>
-<html lang="en" data-theme="modus-modern-light">
+<html lang="en" data-theme="modus-modern-light" data-mode="light" class="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230063A5'/><path d='M8 10h16M8 16h16M8 22h10' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Control Sheet Dashboard · Trimble ITGC</title>
-    <meta name="description" content="Trimble ITGC Control Sheet Dashboard — live control status, owners, and checklist audits." />
+    <title>Control sheet dashboard | Trimble ITGC</title>
+    <meta name="description" content="Trimble ITGC control sheet dashboard: live control status, owners, and checklist audits." />
+    <script>
+      // Runs before first paint so there is no light-to-dark flash.
+      // Sets <html> data-theme, data-mode and the light|dark class, and keeps
+      // localStorage['modus-theme-config'] aligned with the resolved mode.
+      (function () {
+        try {
+          var root = document.documentElement;
+          var stored = null;
+          try {
+            stored = JSON.parse(localStorage.getItem('modus-theme-config') || 'null');
+          } catch (e) {
+            stored = null;
+          }
+          var mode =
+            stored && (stored.mode === 'light' || stored.mode === 'dark' || stored.mode === 'system')
+              ? stored.mode
+              : 'system';
+          var resolved =
+            mode === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : mode;
+          root.setAttribute('data-theme', 'modus-modern-' + resolved);
+          root.setAttribute('data-mode', mode);
+          root.classList.remove('light', 'dark');
+          root.classList.add(resolved);
+          try {
+            localStorage.setItem(
+              'modus-theme-config',
+              JSON.stringify({ theme: 'modus-modern', mode: resolved })
+            );
+            localStorage.setItem('theme', resolved);
+          } catch (e) {
+            /* storage unavailable (private mode) — theme still applied above */
+          }
+        } catch (e) {
+          /* keep the static light defaults on <html> */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
