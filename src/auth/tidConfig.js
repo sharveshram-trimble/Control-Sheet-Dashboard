@@ -45,7 +45,12 @@ export function getTidAuthConfig() {
     import.meta.env.VITE_TID_LOGOUT_REDIRECT_URL,
     '/logout-callback'
   );
-  const scopes = parseScopes(import.meta.env.VITE_TID_SCOPES);
+  // Assist embed needs an access token whose `aud` Assist accepts. Append any
+  // Assist/Agent Studio API scopes here (Developer Console → API products).
+  const scopes = [
+    ...parseScopes(import.meta.env.VITE_TID_SCOPES),
+    ...parseScopes(import.meta.env.VITE_ASSIST_API_SCOPE),
+  ].filter((scope, index, all) => all.indexOf(scope) === index);
 
   const configured = Boolean(
     configurationEndpoint && clientId && scopes.length > 0

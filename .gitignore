@@ -15,6 +15,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Trimble Artifactory Identity Token — never commit
+.npmrc
+!.npmrc.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

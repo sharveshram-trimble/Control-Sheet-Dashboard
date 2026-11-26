@@ -8,6 +8,7 @@ import {
   ModusWcTextInput,
   ModusWcTextarea,
 } from '@trimble-oss/moduswebcomponents-react';
+import { hasChecklistSheet } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
 
 const DRAFT_MAIL_MODAL_ID = 'draft-incomplete-mail-modal';
@@ -143,6 +144,7 @@ function getDraftDialog() {
 export default function TwoColumnOwners({
   ownerStats,
   onSelectControl,
+  onRunChecklist,
   onSendIncompleteMail,
   showToast,
 }) {
@@ -340,23 +342,49 @@ export default function TwoColumnOwners({
 
                   <div className="owner-controls-chips">
                     {owner.controls.map((control) => (
-                      <button
-                        type="button"
+                      <div
                         key={control.id}
                         className="control-chip done"
-                        onClick={() => onSelectControl && onSelectControl(control)}
-                        title="Click to view control details"
                       >
-                        <span className="chip-text">
+                        <button
+                          type="button"
+                          className="chip-text chip-text-button"
+                          onClick={() => onSelectControl?.(control)}
+                          title="View control details"
+                        >
                           <span className="chip-id">{control['Control ID']}</span>
                           <span className="chip-app">
                             ({control['Application Name']})
                           </span>
-                        </span>
-                        <span className="ticket-pill">
-                          {control['TICKET NUMBER']}
-                        </span>
-                      </button>
+                        </button>
+                        <div className="chip-actions">
+                          <span className="ticket-pill">
+                            {control['TICKET NUMBER']}
+                          </span>
+                          {hasChecklistSheet(control) ? (
+                            <ModusWcButton
+                              variant="filled"
+                              color="primary"
+                              size="xs"
+                              customClass="run-checklist-btn"
+                              aria-label={`Run checklist for ${control['Control ID']}`}
+                              onButtonClick={() => onRunChecklist?.(control)}
+                            >
+                              <ModusWcIcon name="check_circle" size="xs" decorative />
+                              Run Checklist
+                            </ModusWcButton>
+                          ) : (
+                            <ModusWcBadge
+                              color="warning"
+                              size="sm"
+                              variant="filled"
+                              aria-label={`Checklist is missing for ${control['Control ID']}`}
+                            >
+                              Checklist is missing
+                            </ModusWcBadge>
+                          )}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>

@@ -7,8 +7,6 @@ import ControlSheetTable from './components/ControlSheetTable';
 import ProcessAnalytics from './components/ProcessAnalytics';
 import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
-import { initialWorkflowData } from './data/initialData';
-
 const TOAST_META = {
   success: { variant: 'success', title: 'Success' },
   warning: { variant: 'warning', title: 'Notice' },
@@ -17,11 +15,22 @@ const TOAST_META = {
 };
 
 export default function App() {
-  const [items, setItems] = useState(initialWorkflowData);
+  // Empty until the n8n production webhook responds (no executions-API bootstrap).
+  const [items, setItems] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedControl, setSelectedControl] = useState(null);
+  const [checklistFocusControl, setChecklistFocusControl] = useState(null);
   const [toasts, setToasts] = useState([]);
   const syncInFlightRef = useRef(false);
+
+  const handleRunChecklist = useCallback((control) => {
+    setChecklistFocusControl(control);
+    setActiveTab('checklist');
+  }, []);
+
+  const handleChecklistFocusHandled = useCallback(() => {
+    setChecklistFocusControl(null);
+  }, []);
 
   const showToast = useCallback((message, type = 'info') => {
     const id = Date.now() + Math.random();
@@ -30,6 +39,35 @@ export default function App() {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
   }, []);
+
+  const handleChecklistResult = useCallback(
+    ({ controlId, status, targetSheetUrl, summary }) => {
+      if (!controlId || !status) return;
+      setItems((prev) =>
+        prev.map((row) => {
+          const id = row.id || row['Control ID'];
+          if (id !== controlId) return row;
+          return {
+            ...row,
+            OUTPUT: status,
+            ...(targetSheetUrl
+              ? {
+                  'TARGET SHEET': targetSheetUrl,
+                  'Target Sheet': targetSheetUrl,
+                }
+              : {}),
+          };
+        })
+      );
+      showToast(
+        status === 'success'
+          ? `Checklist Success${summary ? ` — ${summary}` : ''}`
+          : `Checklist Failed${summary ? ` — ${summary}` : ''}`,
+        status === 'success' ? 'success' : 'error'
+      );
+    },
+    [showToast]
+  );
 
   const fetchLiveData = useCallback(
     async (isManual = false) => {
@@ -40,7 +78,28 @@ export default function App() {
         const json = await res.json().catch(() => null);
 
         if (res.ok && json?.data?.length > 0) {
-          setItems(json.data);
+          // Keep local Assist results (OUTPUT / resolved TARGET SHEET) across webhook refreshes.
+          setItems((prev) => {
+            const priorById = new Map(
+              prev.map((row) => [row.id || row['Control ID'], row])
+            );
+            return json.data.map((row) => {
+              const prior = priorById.get(row.id || row['Control ID']);
+              if (!prior) return row;
+              return {
+                ...row,
+                ...(prior.OUTPUT ? { OUTPUT: prior.OUTPUT } : {}),
+                ...(prior['TARGET SHEET'] || prior['Target Sheet']
+                  ? {
+                      'TARGET SHEET':
+                        prior['TARGET SHEET'] || prior['Target Sheet'],
+                      'Target Sheet':
+                        prior['TARGET SHEET'] || prior['Target Sheet'],
+                    }
+                  : {}),
+              };
+            });
+          });
 
           if (isManual) {
             const completed =
@@ -53,19 +112,13 @@ export default function App() {
                 `Synced ${json.data.length} controls (${completed} with ticket)`,
                 'success'
               );
-            } else if (source === 'trimble_n8n_executions_api') {
-              showToast(
-                json.message ||
-                  'Showing last workflow run (not live webhook)',
-                'warning'
-              );
             } else if (
               source === 'cached_snapshot' ||
               source === 'bundled_initial_data'
             ) {
               showToast(
                 json.message ||
-                  'Using offline snapshot (live sync unavailable)',
+                  'Webhook unavailable — using offline snapshot',
                 'warning'
               );
             } else {
@@ -205,6 +258,7 @@ export default function App() {
           <TwoColumnOwners
             ownerStats={ownerStats}
             onSelectControl={setSelectedControl}
+            onRunChecklist={handleRunChecklist}
             showToast={showToast}
             onSendIncompleteMail={async (payload) => {
               try {
@@ -258,6 +312,9 @@ export default function App() {
           <ChecklistView
             items={items}
             onSelectControl={setSelectedControl}
+            focusControl={checklistFocusControl}
+            onFocusControlHandled={handleChecklistFocusHandled}
+            onChecklistResult={handleChecklistResult}
           />
         )}
       </main>

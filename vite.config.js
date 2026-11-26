@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
@@ -58,12 +59,6 @@ const TID_SCOPE = (process.env.TID_SCOPE || '').trim();
 /** @type {{ accessToken: string, expiresAt: number } | null} */
 let tidTokenCache = null;
 const TOKEN_EXPIRY_SKEW_MS = 60_000;
-
-if (!API_KEY || !WORKFLOW_ID || !N8N_HOST) {
-  console.warn(
-    '[env] Missing N8N_API_KEY, N8N_WORKFLOW_ID, or N8N_HOST in .env — executions API fallback will fail.'
-  );
-}
 
 if (!WEBHOOK_HOST || !WEBHOOK_PATH) {
   console.warn(
@@ -404,55 +399,6 @@ async function fetchFromProductionWebhook() {
   });
 }
 
-async function fetchFromExecutionsApi() {
-  if (!API_KEY || !WORKFLOW_ID) {
-    const err = new Error('Executions API not configured (N8N_API_KEY / N8N_WORKFLOW_ID)');
-    err.code = 'EXEC_CONFIG';
-    throw err;
-  }
-
-  const meta = await httpsRequest(
-    `/api/v1/executions?workflowId=${WORKFLOW_ID}&limit=1`,
-    { headers: { 'X-N8N-API-KEY': API_KEY }, timeoutMs: 15000 }
-  );
-  const latestExec = meta.body?.data?.[0];
-
-  if (!latestExec?.id) {
-    throw new Error('No execution history found for workflow ' + WORKFLOW_ID);
-  }
-
-  const detail = await httpsRequest(
-    `/api/v1/executions/${latestExec.id}?includeData=true`,
-    { headers: { 'X-N8N-API-KEY': API_KEY }, timeoutMs: 25000 }
-  );
-  const runData = detail.body?.data?.resultData?.runData;
-  const codeOutput = runData?.['Code in JavaScript']?.[0]?.data?.main?.[0] || [];
-
-  if (!codeOutput.length) {
-    throw new Error(`Execution #${latestExec.id} has no items in 'Code in JavaScript'`);
-  }
-
-  const items = normalizeControlRows(codeOutput);
-  if (!items.length) {
-    throw new Error(`Execution #${latestExec.id} normalized to 0 control rows`);
-  }
-
-  cacheItems(items);
-
-  return buildResult({
-    live: false,
-    source: 'trimble_n8n_executions_api',
-    message:
-      'Showing last workflow run (not live webhook)',
-    items,
-    executionId: latestExec.id,
-    extra: {
-      status: latestExec.status,
-      createdAt: latestExec.createdAt || detail.body?.createdAt,
-    },
-  });
-}
-
 function loadCachedSnapshot(priorErrors = []) {
   const fallbackPath = path.resolve(__dirname, 'src/data/workflowData.json');
   try {
@@ -496,7 +442,7 @@ function loadCachedSnapshot(priorErrors = []) {
 async function fetchLatestWorkflowData() {
   const errors = [];
 
-  // 1) Production webhook (Trimble ID token + Header Auth)
+  // Production webhook only (Trimble ID token + Header Auth). No executions API.
   try {
     return await fetchFromProductionWebhook();
   } catch (err) {
@@ -504,15 +450,7 @@ async function fetchLatestWorkflowData() {
     console.warn('[Live Sync] Production webhook failed:', err.message);
   }
 
-  // 2) Executions API (stale but structured) — test webhook intentionally skipped
-  try {
-    return await fetchFromExecutionsApi();
-  } catch (err) {
-    errors.push(`executions api: ${err.message}`);
-    console.warn('[Live Sync] Executions API failed:', err.message);
-  }
-
-  // 3) Cache → bundled initial data
+  // Offline fallback only if the webhook is unreachable
   return loadCachedSnapshot(errors);
 }
 
@@ -686,12 +624,28 @@ function n8nLiveApiPlugin() {
 }
 
 // https://vite.dev/config/
+// HTTPS is required so Trimble Assist (embedded.aws-stage.trimble-ai.com) can
+// iframe into this app — stage Chat UI CSP frame-ancestors exclude http://localhost.
 export default defineConfig({
-  plugins: [react(), n8nLiveApiPlugin()],
+  plugins: [react(), basicSsl(), n8nLiveApiPlugin()],
+  optimizeDeps: {
+    // Prefer the iframe TypeScript SDK (ESM). The React chat package ships a
+    // Rolldown bundle that calls require("react") and crashes in the browser.
+    exclude: ['@trimble-agentic-external-npm-local/agentic-chat-react'],
+    include: [
+      'react',
+      'react/jsx-dev-runtime',
+      'react-dom',
+      'react-dom/client',
+      '@trimble-agentic-external-npm-local/agentic-platform-sdk-iframe-typescript',
+      'zod',
+    ],
+  },
   server: {
     port: 3000,
     strictPort: true,
     open: false,
     host: true,
+    // https provided by @vitejs/plugin-basic-ssl
   },
 });

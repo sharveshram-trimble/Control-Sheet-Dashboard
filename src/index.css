@@ -92,6 +92,7 @@
 
 body {
   font-family: var(--font-main);
+  font-size: 0.875rem;
   background: var(--bg-gradient);
   color: var(--text-primary);
   min-height: 100vh;
@@ -113,79 +114,108 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-light);
-  box-shadow: 0 2px 10px rgba(0, 45, 82, 0.05);
-  padding: 0 1.5rem;
+  box-shadow: 0 1px 0 rgba(0, 45, 82, 0.04);
+  padding: 0 1.25rem;
 }
 
 .nav-content {
   max-width: 1560px;
   margin: 0 auto;
-  min-height: 88px;
-  height: auto;
-  padding: 0.65rem 0;
-  display: flex;
+  min-height: 3.75rem;
+  padding: 0.55rem 0;
+  display: grid;
+  grid-template-columns: minmax(11rem, 1fr) auto minmax(11rem, 1fr);
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  column-gap: 1rem;
 }
 
 .brand-section {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  flex: 0 1 auto;
+  gap: 0.65rem;
+  justify-self: start;
   min-width: 0;
 }
 
 .brand-logo {
   display: block;
-  height: 40px;
+  height: 1.875rem;
   width: auto;
-  border-radius: var(--radius-sm);
+  border-radius: 5px;
   object-fit: cover;
   object-position: center;
   flex-shrink: 0;
-  background-color: #0063a3;
+  background-color: var(--primary-blue);
 }
 
-.brand-info h1 {
+.brand-info {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand-info .brand-title {
+  margin: 0;
+  padding: 0;
   font-family: var(--font-heading);
-  font-size: 1.15rem;
+  font-size: 0.875rem;
   font-weight: 700;
+  line-height: 1.2;
   color: var(--primary-deep);
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.brand-info h1 .brand-name {
-  color: var(--primary-blue);
-}
-
-.brand-info .brand-subtitle {
-  font-size: 0.775rem;
-  color: var(--text-muted);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 .nav-center-tabs {
   display: flex;
   align-items: center;
-  min-width: 0;
-  flex: 1 1 auto;
   justify-content: center;
+  justify-self: center;
+  min-width: 0;
 }
 
 .nav-center-tabs modus-wc-tabs {
-  max-width: 100%;
   display: flex;
   align-items: center;
+  max-width: 100%;
+}
+
+/* Keep boxed tabs on one optical midline with equal hit targets */
+.nav-center-tabs modus-wc-tabs [role='tablist'],
+.nav-center-tabs modus-wc-tabs .modus-wc-tabs {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 8px;
+  background: var(--bg-subtle);
+  box-sizing: border-box;
+}
+
+.nav-center-tabs modus-wc-tabs [role='tab'],
+.nav-center-tabs modus-wc-tabs button[role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.125rem;
+  height: 2.125rem;
+  padding: 0 0.7rem !important;
+  margin: 0;
+  border-radius: 6px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.nav-center-tabs modus-wc-tabs [role='tab'] i.modus-wc-icon,
+.nav-center-tabs modus-wc-tabs button[role='tab'] i.modus-wc-icon {
+  font-size: 0.8125rem !important;
+  line-height: 1 !important;
 }
 
 .spinning-icon {
@@ -200,9 +230,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.75rem;
-  flex: 0 0 auto;
+  justify-self: end;
+  gap: 0.5rem;
   min-width: 0;
+  min-height: 2.125rem;
+}
+
+.nav-actions modus-wc-button {
+  flex-shrink: 0;
 }
 
 /* Keeps center tabs balanced after removing the 30s / Sync controls */
@@ -212,6 +247,30 @@ body {
   height: 1px;
   overflow: hidden;
   pointer-events: none;
+}
+
+@media (max-width: 1100px) {
+  .nav-content {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand actions'
+      'tabs tabs';
+    row-gap: 0.65rem;
+  }
+
+  .brand-section {
+    grid-area: brand;
+  }
+
+  .nav-actions {
+    grid-area: actions;
+  }
+
+  .nav-center-tabs {
+    grid-area: tabs;
+    justify-self: stretch;
+    overflow-x: auto;
+  }
 }
 
 .live-badge {
@@ -397,18 +456,18 @@ body {
 
 .radial-value {
   font-family: var(--font-heading);
-  font-size: 1.85rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--primary-deep);
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 .radial-label {
-  font-size: 0.675rem;
+  font-size: 0.625rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-muted);
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
 }
 
 .progress-info {
@@ -419,13 +478,13 @@ body {
 
 .progress-title {
   font-family: var(--font-heading);
-  font-size: 1.35rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: var(--primary-deep);
 }
 
 .progress-sub {
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -495,11 +554,11 @@ body {
 }
 
 .stat-title {
-  font-size: 0.775rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
   color: var(--text-muted);
-  letter-spacing: 0.4px;
+  letter-spacing: 0.35px;
 }
 
 .stat-icon {
@@ -518,14 +577,14 @@ body {
 
 .stat-number {
   font-family: var(--font-heading);
-  font-size: 1.75rem;
+  font-size: 1.375rem;
   font-weight: 800;
   color: var(--text-primary);
   line-height: 1;
 }
 
 .stat-footer {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -678,13 +737,13 @@ body {
 
 .column-header-text h3 {
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .column-header-text p {
-  font-size: 0.775rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -853,13 +912,13 @@ body {
 
 .owner-details h4 {
   font-family: var(--font-heading);
-  font-size: 0.95rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .owner-details .owner-app-meta {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   color: var(--text-muted);
 }
 
@@ -908,22 +967,21 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.55rem;
   width: 100%;
   box-sizing: border-box;
-  min-height: 2.5rem;
-  padding: 0.5rem 0.7rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.6rem;
   margin: 0;
   background: var(--bg-subtle);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.3;
   color: var(--text-secondary);
   text-align: left;
   overflow: visible;
-  cursor: pointer;
   font: inherit;
 }
 
@@ -935,6 +993,75 @@ body {
   min-width: 0;
   flex: 1 1 auto;
   line-height: 1.35;
+}
+
+.control-chip .chip-text-button {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-chip .chip-text-button:hover .chip-id {
+  text-decoration: underline;
+}
+
+.control-chip .chip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+}
+
+.control-chip .chip-actions modus-wc-button,
+.control-chip .chip-actions .run-checklist-btn,
+.checklist-table .run-checklist-btn {
+  white-space: nowrap;
+}
+
+.checklist-table .run-checklist-btn,
+.assist-panel-toolbar .run-checklist-btn {
+  font-weight: 600;
+}
+
+/* Match ticket-pill height/padding in completed-control chips */
+.control-chip .chip-actions modus-wc-button.run-checklist-btn,
+.control-chip .chip-actions .run-checklist-btn {
+  align-self: center;
+  box-sizing: border-box;
+  min-height: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.3px;
+  border-radius: 4px;
+}
+
+.control-chip .chip-actions modus-wc-button.run-checklist-btn button,
+.control-chip .chip-actions .run-checklist-btn button {
+  box-sizing: border-box;
+  min-height: 1.5rem !important;
+  height: 1.5rem !important;
+  padding: 0.2rem 0.55rem !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  letter-spacing: 0.3px;
+  border-radius: 4px !important;
+}
+
+.control-chip .chip-actions modus-wc-button.run-checklist-btn i.modus-wc-icon,
+.control-chip .chip-actions .run-checklist-btn i.modus-wc-icon {
+  font-size: 0.75rem !important;
+  line-height: 1 !important;
 }
 
 .control-chip .chip-id {
@@ -1122,17 +1249,17 @@ body {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 0.825rem;
+  font-size: 0.75rem;
 }
 
 .data-table th {
   background: #F8FAFD;
   color: var(--text-secondary);
   font-weight: 700;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 0.85rem 1rem;
+  letter-spacing: 0.4px;
+  padding: 0.65rem 0.85rem;
   border-bottom: 2px solid var(--border-light);
   position: sticky;
   top: 0;
@@ -1141,7 +1268,7 @@ body {
 }
 
 .data-table td {
-  padding: 0.9rem 1rem;
+  padding: 0.7rem 0.85rem;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   vertical-align: middle;
@@ -1663,14 +1790,14 @@ body {
 .checklist-header-copy h2 {
   margin: 0;
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 0.9375rem;
   font-weight: 700;
   color: var(--primary-deep);
 }
 
 .checklist-header-copy p {
-  margin: 0.35rem 0 0;
-  font-size: 0.8rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
   color: var(--text-muted);
   max-width: 42rem;
 }
@@ -1725,6 +1852,183 @@ body {
 .checklist-sheet-link:hover {
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.checklist-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.checklist-layout .checklist-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+/* ==========================================================================
+   TRIMBLE ASSIST (Agent Studio embed)
+   ========================================================================== */
+
+.assist-panel {
+  width: min(100%, 26rem);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 28rem;
+  max-height: calc(100dvh - 10rem);
+  padding: 1rem;
+  border: 1px solid var(--border-light, #d9e0e8);
+  border-radius: 12px;
+  background: var(--bg-card, #fff);
+  box-shadow: 0 8px 24px rgba(15, 35, 55, 0.08);
+}
+
+.assist-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.assist-panel-header-copy {
+  min-width: 0;
+}
+
+.assist-panel-subtitle,
+.assist-panel-empty,
+.assist-panel-status,
+.assist-panel-auth,
+.assist-panel-context p {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #5b6b7c);
+}
+
+.assist-panel-auth {
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--bg-subtle, #f4f7fa);
+  word-break: break-word;
+}
+
+.assist-panel--collapsed,
+.assist-panel[hidden] {
+  display: none !important;
+}
+
+.assist-embed-error {
+  margin: 0.35rem 0 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--warning-border, #f0c36d);
+  background: var(--warning-bg, #fff8eb);
+  color: var(--text-secondary, #334155);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.assist-embed-error p {
+  margin: 0;
+}
+
+.assist-embed-error p + p {
+  margin-top: 0.45rem;
+}
+
+.assist-embed-error code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.assist-panel-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.assist-panel-context {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: var(--bg-subtle, #f4f7fa);
+}
+
+.assist-panel-drive a {
+  color: var(--primary-blue, #0063a3);
+  font-weight: 600;
+}
+
+.assist-missing-flag {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--warning-text, #e49325);
+}
+
+.assist-panel-chat {
+  flex: 1;
+  min-height: 16rem;
+  border: 1px solid var(--border-light, #d9e0e8);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.assist-panel-chat > * {
+  width: 100%;
+  height: 100%;
+  min-height: 16rem;
+}
+
+.assist-iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 16rem;
+  border: 0;
+  background: var(--bg-card, #fff);
+}
+
+.assist-sdk-stub {
+  padding: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #334155);
+  line-height: 1.45;
+}
+
+.assist-sdk-stub code,
+.assist-sdk-stub pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+}
+
+.assist-sdk-stub pre {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+@media (max-width: 960px) {
+  .checklist-layout {
+    flex-direction: column;
+  }
+
+  .assist-panel {
+    width: 100%;
+    max-height: none;
+  }
 }
 
 /* ==========================================================================
@@ -1791,11 +2095,12 @@ body {
 }
 
 .nav-user-label {
-  max-width: 12rem;
+  max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--text-secondary, #334155);
 }
