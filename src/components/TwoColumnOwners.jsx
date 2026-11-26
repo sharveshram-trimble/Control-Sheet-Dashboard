@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   ModusWcBadge,
   ModusWcButton,
@@ -10,6 +11,8 @@ import {
 } from '@trimble-oss/moduswebcomponents-react';
 import { hasChecklistSheet } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
+import { staggerContainer, staggerItem } from '../motion/presets';
+import StatusChip from './StatusChip';
 
 const DRAFT_MAIL_MODAL_ID = 'draft-incomplete-mail-modal';
 
@@ -263,6 +266,9 @@ export default function TwoColumnOwners({
       )
   );
 
+  const reduceMotion = useReducedMotion();
+  const listVariants = staggerContainer(reduceMotion);
+
   const getInitials = (name) => {
     if (!name) return '??';
     const parts = name.split(' ');
@@ -274,9 +280,9 @@ export default function TwoColumnOwners({
     <section className="owner-breakdown-section">
       <div className="section-header-row">
         <div className="section-header-title">
-          <h2>Control Owner Compliance Separation</h2>
+          <h2>Owners by ticket status</h2>
           <ModusWcBadge color="default" size="sm" variant="outlined">
-            Populated by Ticket Verification in Control Sheet
+            From control sheet ticket verification
           </ModusWcBadge>
         </div>
       </div>
@@ -285,15 +291,12 @@ export default function TwoColumnOwners({
         <div className="owner-column-card completed-column">
           <div className="column-header completed-head">
             <div className="column-header-title">
-              <div className="column-icon-bubble completed">
-                <ModusWcIcon name="shield" size="md" decorative />
-              </div>
               <div className="column-header-text">
-                <h3>Completed Owners</h3>
-                <p>Verified ticket numbers only — incomplete controls are listed on the right</p>
+                <h3>Ticketed owners</h3>
+                <p>Controls with verified ticket numbers. Incomplete items stay on the right.</p>
               </div>
             </div>
-            <span className="column-count completed" aria-label={`${completedOwners.length} completed owners`}>
+            <span className="column-count completed" aria-label={`${completedOwners.length} ticketed owners`}>
               {completedOwners.length}
             </span>
           </div>
@@ -312,15 +315,24 @@ export default function TwoColumnOwners({
             />
           </div>
 
-          <div className="owner-cards-list">
+          <motion.div
+            className="owner-cards-list"
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
             {filteredCompleted.length === 0 ? (
               <div className="owner-empty-state">
                 <ModusWcIcon name="check_circle" size="lg" decorative />
                 <p>No completed owners match search</p>
               </div>
             ) : (
-              filteredCompleted.map((owner) => (
-                <div key={`completed-${owner.name}`} className="owner-item-card is-completed">
+              filteredCompleted.map((owner, index) => (
+                <motion.div
+                  key={`completed-${owner.name}`}
+                  className="owner-item-card is-completed"
+                  variants={staggerItem(reduceMotion, index)}
+                >
                   <div className="owner-card-top">
                     <div className="owner-profile">
                       <div className="owner-avatar completed">
@@ -335,9 +347,7 @@ export default function TwoColumnOwners({
                       </div>
                     </div>
 
-                    <ModusWcBadge color="success" size="sm" variant="filled">
-                      Completed
-                    </ModusWcBadge>
+                    <StatusChip tone="ok" label="Ticketed" />
                   </div>
 
                   <div className="owner-controls-chips">
@@ -374,37 +384,31 @@ export default function TwoColumnOwners({
                               Run Checklist
                             </ModusWcButton>
                           ) : (
-                            <ModusWcBadge
-                              color="warning"
-                              size="sm"
-                              variant="filled"
-                              aria-label={`Checklist is missing for ${control['Control ID']}`}
-                            >
-                              Checklist is missing
-                            </ModusWcBadge>
+                            <StatusChip
+                              tone="idle"
+                              label="No checklist"
+                              compact
+                            />
                           )}
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </div>
 
         <div className="owner-column-card pending-column">
           <div className="column-header pending-head">
             <div className="column-header-title">
-              <div className="column-icon-bubble pending">
-                <ModusWcIcon name="warning" size="md" decorative />
-              </div>
               <div className="column-header-text">
-                <h3>Didn't Complete Owners</h3>
-                <p>Missing ticket numbers only — completed controls are listed on the left</p>
+                <h3>Missing tickets</h3>
+                <p>Controls without ticket numbers. Ticketed controls stay on the left.</p>
               </div>
             </div>
-            <span className="column-count pending" aria-label={`${pendingOwners.length} incomplete owners`}>
+            <span className="column-count pending" aria-label={`${pendingOwners.length} owners missing tickets`}>
               {pendingOwners.length}
             </span>
           </div>
@@ -423,15 +427,24 @@ export default function TwoColumnOwners({
             />
           </div>
 
-          <div className="owner-cards-list">
+          <motion.div
+            className="owner-cards-list"
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
             {filteredPending.length === 0 ? (
               <div className="owner-empty-state success">
                 <ModusWcIcon name="check_circle" size="lg" decorative />
                 <p>All owners have verified tickets!</p>
               </div>
             ) : (
-              filteredPending.map((owner) => (
-                <div key={`incomplete-${owner.name}`} className="owner-item-card is-pending">
+              filteredPending.map((owner, index) => (
+                <motion.div
+                  key={`incomplete-${owner.name}`}
+                  className="owner-item-card is-pending"
+                  variants={staggerItem(reduceMotion, index)}
+                >
                   <div className="owner-card-top">
                     <div className="owner-profile">
                       <div className="owner-avatar pending">
@@ -446,9 +459,7 @@ export default function TwoColumnOwners({
                       </div>
                     </div>
 
-                    <ModusWcBadge color="warning" size="sm" variant="filled">
-                      Incomplete
-                    </ModusWcBadge>
+                    <StatusChip tone="warn" label="Missing ticket" />
                   </div>
 
                   <div className="owner-mail-actions">
@@ -493,14 +504,14 @@ export default function TwoColumnOwners({
                             ({control['Application Name']})
                           </span>
                         </span>
-                        <span className="ticket-pill missing">No Ticket</span>
+                        <StatusChip tone="warn" label="No ticket" compact />
                       </button>
                     ))}
                   </div>
-                </div>
+                </motion.div>
               ))
             )}
-          </div>
+          </motion.div>
         </div>
       </div>
 

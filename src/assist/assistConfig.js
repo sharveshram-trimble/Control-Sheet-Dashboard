@@ -17,10 +17,16 @@ export function getAssistConfig() {
     environmentRaw === 'prod' || environmentRaw === 'production'
       ? 'prod'
       : 'stage';
+  const runtimeRaw = trim(
+    import.meta.env.VITE_AGENT_RUNTIME || 'api'
+  ).toLowerCase();
+  // `api` = Agents API with SPA user token; `assist` = Assist iframe embed.
+  const runtime = runtimeRaw === 'assist' ? 'assist' : 'api';
 
   return {
     agentId,
     environment,
+    runtime,
     configured: Boolean(agentId),
   };
 }

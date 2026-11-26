@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ModusWcAlert, ModusWcToast } from '@trimble-oss/moduswebcomponents-react';
 import Header from './components/Header';
 import HeroProgress from './components/HeroProgress';
@@ -7,6 +8,16 @@ import ControlSheetTable from './components/ControlSheetTable';
 import ProcessAnalytics from './components/ProcessAnalytics';
 import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
+import SurfaceSkeleton from './components/SurfaceSkeleton';
+import { takePendingChecklistRun } from './assist/pendingChecklistRun';
+import { initialWorkflowData } from './data/initialData';
+import { duration, easeBrand, fadeUp } from './motion/presets';
+
+const isUiPreview =
+  import.meta.env.DEV &&
+  typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).has('uiPreview');
+
 const TOAST_META = {
   success: { variant: 'success', title: 'Success' },
   warning: { variant: 'warning', title: 'Notice' },
@@ -16,12 +27,26 @@ const TOAST_META = {
 
 export default function App() {
   // Empty until the n8n production webhook responds (no executions-API bootstrap).
-  const [items, setItems] = useState([]);
+  // DEV ?uiPreview=1 seeds sample rows so UI surfaces can be reviewed offline.
+  const [items, setItems] = useState(() =>
+    isUiPreview ? initialWorkflowData : []
+  );
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedControl, setSelectedControl] = useState(null);
   const [checklistFocusControl, setChecklistFocusControl] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [syncState, setSyncState] = useState(isUiPreview ? 'ready' : 'loading');
+  const [lastSyncedAt, setLastSyncedAt] = useState(() =>
+    isUiPreview ? new Date() : null
+  );
+  const [syncError, setSyncError] = useState(null);
+  const [successPulse, setSuccessPulse] = useState(false);
   const syncInFlightRef = useRef(false);
+  const itemsLengthRef = useRef(items.length);
+
+  useEffect(() => {
+    itemsLengthRef.current = items.length;
+  }, [items.length]);
 
   const handleRunChecklist = useCallback((control) => {
     setChecklistFocusControl(control);
@@ -59,6 +84,10 @@ export default function App() {
           };
         })
       );
+      if (status === 'success') {
+        setSuccessPulse(true);
+        window.setTimeout(() => setSuccessPulse(false), 520);
+      }
       showToast(
         status === 'success'
           ? `Checklist Success${summary ? ` — ${summary}` : ''}`
@@ -73,6 +102,8 @@ export default function App() {
     async (isManual = false) => {
       if (syncInFlightRef.current) return;
       syncInFlightRef.current = true;
+      setSyncState((prev) => (prev === 'ready' && !isManual ? prev : 'loading'));
+      setSyncError(null);
       try {
         const res = await fetch('/api/live-data');
         const json = await res.json().catch(() => null);
@@ -100,6 +131,9 @@ export default function App() {
               };
             });
           });
+          setSyncState('ready');
+          setLastSyncedAt(new Date());
+          setSyncError(null);
 
           if (isManual) {
             const completed =
@@ -132,22 +166,26 @@ export default function App() {
           return;
         }
 
+        const message =
+          json?.message ||
+          json?.error ||
+          (!res.ok
+            ? 'Sync failed (no data sources available)'
+            : 'No rows returned from sync');
+        setSyncState(itemsLengthRef.current ? 'ready' : 'error');
+        setSyncError(message);
         if (isManual) {
-          if (!res.ok) {
-            showToast(
-              json?.message || json?.error || 'Sync failed (no data sources available)',
-              'error'
-            );
-          } else {
-            showToast('No rows returned from sync', 'warning');
-          }
+          showToast(message, res.ok ? 'warning' : 'error');
         } else if (!res.ok) {
-          console.warn('[Live Sync] Auto-refresh failed:', json?.message || json?.error);
+          console.warn('[Live Sync] Auto-refresh failed:', message);
         }
       } catch (err) {
         console.warn('Live fetch error:', err.message);
+        const message = 'Live endpoint unreachable — keeping current data';
+        setSyncState(itemsLengthRef.current ? 'ready' : 'error');
+        setSyncError(err.message || message);
         if (isManual) {
-          showToast('Live endpoint unreachable — keeping current data', 'error');
+          showToast(message, 'error');
         }
       } finally {
         syncInFlightRef.current = false;
@@ -167,6 +205,19 @@ export default function App() {
     }, 30000);
     return () => clearInterval(timer);
   }, [fetchLiveData]);
+
+  // After Trimble ID login, resume a checklist run that was interrupted by OAuth.
+  useEffect(() => {
+    if (!items.length) return;
+    const pending = takePendingChecklistRun();
+    if (!pending?.controlId) return;
+    const match = items.find(
+      (row) => String(row.id || row['Control ID'] || '') === pending.controlId
+    );
+    if (!match) return;
+    setChecklistFocusControl(match);
+    setActiveTab('checklist');
+  }, [items]);
 
   const { stats, ownerStats } = useMemo(() => {
     const totalControls = items.length;
@@ -233,6 +284,17 @@ export default function App() {
           a.name.localeCompare(b.name)
       );
 
+    const criticalPending = items
+      .filter((i) => !i.isCompleted)
+      .slice(0, 5)
+      .map((i) => ({
+        id: i.id || i['Control ID'],
+        controlId: i['Control ID'],
+        owner: i['Control Owner'],
+        app: i['Application Name'],
+        item: i,
+      }));
+
     return {
       stats: {
         totalControls,
@@ -242,80 +304,134 @@ export default function App() {
         totalOwners: ownerList.length,
         completedOwnersCount: completedOwnersList.length,
         pendingOwnersCount: pendingOwnersList.length,
+        criticalPending,
       },
       ownerStats: ownerList,
     };
   }, [items]);
 
+  const showSkeleton = !isUiPreview && items.length === 0 && syncState === 'loading';
+  const showSyncError =
+    !isUiPreview && items.length === 0 && syncState === 'error';
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="app-container">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className={`app-container${successPulse ? ' success-pulse-host' : ''}`}>
+      {successPulse ? (
+        <span className="success-pulse success-pulse--global" aria-hidden="true" />
+      ) : null}
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        syncState={syncState}
+        lastSyncedAt={lastSyncedAt}
+        syncError={syncError}
+        onRetrySync={() => fetchLiveData(true)}
+      />
 
       <main className="main-content">
-        <HeroProgress items={items} stats={stats} />
+        {showSkeleton ? (
+          <SurfaceSkeleton />
+        ) : showSyncError ? (
+          <div className="surface-error" role="alert">
+            <h2>Control sheet unavailable</h2>
+            <p>{syncError || 'Could not load live controls.'}</p>
+            <button
+              type="button"
+              className="surface-error-retry"
+              onClick={() => fetchLiveData(true)}
+            >
+              Retry sync
+            </button>
+          </div>
+        ) : (
+          <>
+            {activeTab !== 'checklist' ? (
+              <HeroProgress
+                stats={stats}
+                onSelectControl={setSelectedControl}
+              />
+            ) : null}
 
-        {activeTab === 'overview' && (
-          <TwoColumnOwners
-            ownerStats={ownerStats}
-            onSelectControl={setSelectedControl}
-            onRunChecklist={handleRunChecklist}
-            showToast={showToast}
-            onSendIncompleteMail={async (payload) => {
-              try {
-                const res = await fetch('/api/send-incomplete-mail', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload),
-                });
-                const json = await res.json().catch(() => ({}));
-                if (!res.ok || json.success === false) {
-                  showToast(
-                    json.message || json.error || 'Failed to send reminder email',
-                    'error'
-                  );
-                  return;
-                }
-                const kind =
-                  payload.mailType === 'follow_up'
-                    ? 'Follow-up'
-                    : payload.mailType === 'draft'
-                      ? 'Draft'
-                      : 'Reminder';
-                showToast(
-                  json.message ||
-                    `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
-                  'success'
-                );
-              } catch (err) {
-                showToast(
-                  err.message || 'Failed to reach mail workflow',
-                  'error'
-                );
-              }
-            }}
-          />
-        )}
+            <AnimatePresence mode="sync">
+              <motion.div
+                key={activeTab}
+                className="tab-panel"
+                {...fadeUp(reduceMotion, 10)}
+                transition={{ duration: duration.ui, ease: easeBrand }}
+              >
+                {activeTab === 'overview' && (
+                  <TwoColumnOwners
+                    ownerStats={ownerStats}
+                    onSelectControl={setSelectedControl}
+                    onRunChecklist={handleRunChecklist}
+                    showToast={showToast}
+                    onSendIncompleteMail={async (payload) => {
+                      try {
+                        const res = await fetch('/api/send-incomplete-mail', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok || json.success === false) {
+                          showToast(
+                            json.message ||
+                              json.error ||
+                              'Failed to send reminder email',
+                            'error'
+                          );
+                          return;
+                        }
+                        const kind =
+                          payload.mailType === 'follow_up'
+                            ? 'Follow-up'
+                            : payload.mailType === 'draft'
+                              ? 'Draft'
+                              : 'Reminder';
+                        showToast(
+                          json.message ||
+                            `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
+                          'success'
+                        );
+                      } catch (err) {
+                        showToast(
+                          err.message || 'Failed to reach mail workflow',
+                          'error'
+                        );
+                      }
+                    }}
+                  />
+                )}
 
-        {activeTab === 'matrix' && (
-          <ControlSheetTable
-            items={items}
-            onSelectControl={setSelectedControl}
-            showToast={showToast}
-          />
-        )}
+                {activeTab === 'matrix' && (
+                  <ControlSheetTable
+                    items={items}
+                    onSelectControl={setSelectedControl}
+                    showToast={showToast}
+                  />
+                )}
 
-        {activeTab === 'progress' && (
-          <ProcessAnalytics items={items} stats={stats} ownerStats={ownerStats} />
-        )}
+                {activeTab === 'progress' && (
+                  <ProcessAnalytics
+                    items={items}
+                    stats={stats}
+                    ownerStats={ownerStats}
+                  />
+                )}
 
-        {activeTab === 'checklist' && (
-          <ChecklistView
-            items={items}
-            onSelectControl={setSelectedControl}
-            focusControl={checklistFocusControl}
-            onFocusControlHandled={handleChecklistFocusHandled}
-            onChecklistResult={handleChecklistResult}
-          />
+                {activeTab === 'checklist' && (
+                  <ChecklistView
+                    items={items}
+                    onSelectControl={setSelectedControl}
+                    focusControl={checklistFocusControl}
+                    onFocusControlHandled={handleChecklistFocusHandled}
+                    onChecklistResult={handleChecklistResult}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </>
         )}
       </main>
 

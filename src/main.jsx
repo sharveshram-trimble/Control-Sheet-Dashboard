@@ -3,7 +3,9 @@ import { defineCustomElements } from '@trimble-oss/moduswebcomponents/loader';
 import '@trimble-oss/moduswebcomponents/modus-wc-styles.css';
 import '@trimble-oss/moduswebcomponents/modus-icons.css';
 import '@trimble-oss/moduswebcomponents/modus-icons-2.css';
+import './styles/tokens.css';
 import './index.css';
+import './styles/dashboard-surfaces.css';
 import AuthRoot from './auth/AuthRoot.jsx';
 
 defineCustomElements();

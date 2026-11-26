@@ -45,8 +45,8 @@ export function getTidAuthConfig() {
     import.meta.env.VITE_TID_LOGOUT_REDIRECT_URL,
     '/logout-callback'
   );
-  // Assist embed needs an access token whose `aud` Assist accepts. Append any
-  // Assist/Agent Studio API scopes here (Developer Console → API products).
+  // Merged into SPA login. For Agents API (user token) include `agents`.
+  // Assist iframe also needs models/skills when VITE_AGENT_RUNTIME=assist.
   const scopes = [
     ...parseScopes(import.meta.env.VITE_TID_SCOPES),
     ...parseScopes(import.meta.env.VITE_ASSIST_API_SCOPE),

@@ -34,6 +34,12 @@ import {
   isGoogleSheetUrl,
   normalizeChecklistOutput,
 } from './assistConfig';
+import {
+  inspectAccessToken,
+  missingAgentsScope,
+  runAgentWithUserToken,
+} from './agentApi';
+import { stashPendingChecklistRun } from './pendingChecklistRun';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -61,34 +67,38 @@ function parseOutputFromText(text) {
   return null;
 }
 
-/** Decode JWT payload claims for Assist auth diagnostics (no secrets logged). */
-function inspectAccessToken(token) {
-  try {
-    const part = String(token || '').split('.')[1];
-    if (!part) return null;
-    const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
-    const payload = JSON.parse(json);
-    const aud = payload.aud;
-    const scope = payload.scope || payload.scp;
-    return {
-      aud: Array.isArray(aud) ? aud.join(', ') : String(aud || ''),
-      scope: Array.isArray(scope) ? scope.join(' ') : String(scope || ''),
-    };
-  } catch {
-    return null;
+/** Assist embed with skills:true needs both models + skills on the access token. */
+function missingAssistScopes(claims) {
+  if (!claims?.scopeSet) return ['models', 'skills'];
+  const missing = [];
+  if (![...claims.scopeSet].some((s) => s === 'models' || s.endsWith('-models'))) {
+    missing.push('models');
   }
+  if (![...claims.scopeSet].some((s) => s === 'skills' || s.endsWith('-skills'))) {
+    missing.push('skills');
+  }
+  return missing;
 }
 
-/** Base SDK sandbox + popup escape so Assist's own TID sign-in can open. */
-const ASSIST_IFRAME_SANDBOX = `${CHAT_UI_IFRAME_SANDBOX_ATTRIBUTES} allow-popups-to-escape-sandbox`;
+function missingScopesForRuntime(runtime, claims) {
+  return runtime === 'assist'
+    ? missingAssistScopes(claims)
+    : missingAgentsScope(claims);
+}
+
+/**
+ * Sandbox for Assist iframe. Popups + top-nav-by-gesture so TID Sign in can leave
+ * the frame (Cursor/embedded browsers often block sandboxed OAuth popups otherwise).
+ */
+const ASSIST_IFRAME_SANDBOX = `${CHAT_UI_IFRAME_SANDBOX_ATTRIBUTES} allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation`;
 
 /**
  * Side panel that embeds Trimble Assist via the iframe SDK
  * (avoids agentic-chat-react's broken require("react") bundle).
  *
- * Auth: parent must supply the dashboard Trimble ID *access* token. Assist
- * accepts it only when the token audience matches Assist/Agent Studio APIs
- * (set via VITE_TID_SCOPES / VITE_ASSIST_API_SCOPE, then re-login).
+ * Auth: uses the dashboard Trimble ID *user* access token from SPA login
+ * (not the n8n client-credentials app token). Default runtime is Agents API
+ * (`VITE_AGENT_RUNTIME=api`) with scope `agents`.
  */
 export default function AssistPanel({
   open,
@@ -103,15 +113,28 @@ export default function AssistPanel({
     getAccessTokenSilently,
     getTokens,
     isAuthenticated,
+    loginWithRedirect,
     user,
   } = useAuth();
   const iframeRef = useRef(null);
+  const panelRef = useRef(null);
+  const returnFocusRef = useRef(null);
   const readyRef = useRef(false);
   const pendingAutoStartRef = useRef(false);
   const latestTokenRef = useRef('');
+  const tokenRejectedRef = useRef(false);
+  const unauthorizedReloadsRef = useRef(0);
+  const runAbortRef = useRef(null);
+  const runGuardRef = useRef(false);
   const controlRef = useRef(control);
   const quarterRef = useRef(initialQuarter || currentCalendarQuarter());
   const onResultRef = useRef(onChecklistResult);
+  const provideTokenRef = useRef(async () => '');
+  const buildOnBeforeRunRef = useRef(() => ({
+    tools: { runTime: {}, global: {} },
+    runContext: { context: [] },
+  }));
+  const handleUnauthorizedRef = useRef(async () => undefined);
   const [quarter, setQuarter] = useState(
     () => initialQuarter || currentCalendarQuarter()
   );
@@ -120,19 +143,61 @@ export default function AssistPanel({
   const [authBridge, setAuthBridge] = useState('');
   const [iframeReady, setIframeReady] = useState(false);
   const [embedError, setEmbedError] = useState('');
+  const [needsAssistReauth, setNeedsAssistReauth] = useState(false);
+  const [agentTranscript, setAgentTranscript] = useState('');
+  const [agentRunning, setAgentRunning] = useState(false);
   // Keep iframe mounted after first open so Assist TID session can stick.
   const [everOpened, setEverOpened] = useState(false);
   const assist = useMemo(() => getAssistConfig(), []);
+  const useAgentsApi = assist.runtime !== 'assist';
   const pageIsHttps =
     typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  controlRef.current = control;
-  quarterRef.current = quarter;
-  onResultRef.current = onChecklistResult;
+  useEffect(() => {
+    controlRef.current = control;
+    quarterRef.current = quarter;
+    onResultRef.current = onChecklistResult;
+  }, [control, quarter, onChecklistResult]);
+
+  const reauthToAssist = useCallback(async () => {
+    latestTokenRef.current = '';
+    tokenRejectedRef.current = false;
+    setNeedsAssistReauth(false);
+    setStatus(
+      useAgentsApi
+        ? 'Opening Trimble ID so login can mint a user access token with the agents scope…'
+        : 'Opening Trimble ID so the dashboard can mint an Assist-capable access token…'
+    );
+    try {
+      // Re-run Authorization Code + PKCE with current tidClient scopes
+      // (VITE_ASSIST_API_SCOPE — agents for API runtime, or models/skills for Assist).
+      await loginWithRedirect();
+    } catch (err) {
+      setStatus(
+        err?.message ||
+          'Could not start Trimble ID sign-in. Use Sign out on the header, then sign in again.'
+      );
+    }
+  }, [loginWithRedirect, useAgentsApi]);
 
   useEffect(() => {
-    if (open) setEverOpened(true);
-  }, [open]);
+    if (open) {
+      setEverOpened(true);
+      unauthorizedReloadsRef.current = 0;
+      returnFocusRef.current = document.activeElement;
+      window.setTimeout(() => {
+        const closeBtn = panelRef.current?.querySelector?.(
+          '[aria-label="Close Assist panel"]'
+        );
+        closeBtn?.focus?.();
+      }, 40);
+    } else if (everOpened) {
+      const el = returnFocusRef.current;
+      if (el && typeof el.focus === 'function') {
+        window.setTimeout(() => el.focus(), 0);
+      }
+    }
+  }, [open, everOpened]);
 
   const environment = assist.environment;
   const chatOrigin = useMemo(
@@ -200,6 +265,66 @@ export default function AssistPanel({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const resolveAccessToken = useCallback(
+    async ({ forceRefresh = false } = {}) => {
+      if (!isAuthenticated) {
+        throw new Error(
+          'Sign in with Trimble ID on the dashboard login screen first.'
+        );
+      }
+      if (forceRefresh) {
+        latestTokenRef.current = '';
+      }
+      if (!forceRefresh && latestTokenRef.current) {
+        return latestTokenRef.current;
+      }
+
+      let accessToken = '';
+      // Prefer silent refresh so scope changes in .env are picked up after re-login.
+      if (typeof getAccessTokenSilently === 'function') {
+        try {
+          accessToken = (await getAccessTokenSilently()) || '';
+        } catch {
+          accessToken = '';
+        }
+      }
+      if (!accessToken && typeof getTokens === 'function') {
+        const tokens = await getTokens();
+        accessToken = tokens?.access_token || '';
+      }
+      if (!accessToken) {
+        throw new Error('No Trimble ID access token available.');
+      }
+
+      const claims = inspectAccessToken(accessToken);
+      const missing = missingScopesForRuntime(assist.runtime, claims);
+      if (missing.length) {
+        latestTokenRef.current = '';
+        setNeedsAssistReauth(true);
+        const err = new Error(
+          useAgentsApi
+            ? `Login token is missing scope(s): ${missing.join(', ')}. Sign out and sign in again so VITE_ASSIST_API_SCOPE includes agents (user token, not the app client-credentials token).`
+            : `Dashboard token is missing Assist scope(s): ${missing.join(', ')}. Sign out and sign in again (or use Sign in to Assist) so VITE_ASSIST_API_SCOPE=models,skills is on the access token.`
+        );
+        err.code = 'ASSIST_SCOPES_MISSING';
+        err.claims = claims;
+        throw err;
+      }
+
+      latestTokenRef.current = accessToken;
+      tokenRejectedRef.current = false;
+      setNeedsAssistReauth(false);
+      return accessToken;
+    },
+    [
+      getAccessTokenSilently,
+      getTokens,
+      isAuthenticated,
+      assist.runtime,
+      useAgentsApi,
+    ]
+  );
+
   // Prefetch dashboard TID access token whenever the panel is used.
   useEffect(() => {
     if (!open) return undefined;
@@ -208,36 +333,40 @@ export default function AssistPanel({
     (async () => {
       if (!isAuthenticated) {
         latestTokenRef.current = '';
+        setNeedsAssistReauth(false);
         setAuthBridge(
           'Dashboard is not signed in. Sign in with Trimble ID on the main login screen first.'
         );
         return;
       }
       try {
-        const tokens = typeof getTokens === 'function'
-          ? await getTokens()
-          : { access_token: await getAccessTokenSilently() };
-        const accessToken = tokens?.access_token || '';
+        const accessToken = await resolveAccessToken({ forceRefresh: false });
         if (cancelled) return;
-        if (!accessToken) {
-          latestTokenRef.current = '';
-          setAuthBridge(
-            'Signed into the dashboard, but no access token was available. Sign out and sign in again.'
-          );
-          return;
-        }
-        latestTokenRef.current = accessToken;
         const claims = inspectAccessToken(accessToken);
         const who =
           user?.email || user?.name || user?.id || 'Trimble ID user';
+        const identity = claims?.identityType
+          ? ` identity=${claims.identityType}`
+          : '';
         setAuthBridge(
           claims
-            ? `Dashboard session: ${who}. Token aud=${claims.aud || '—'}; scope=${claims.scope || '—'}.`
-            : `Dashboard session: ${who}. Access token ready.`
+            ? `Dashboard user session: ${who}.${identity} Token aud=${claims.aud || '—'}; scope=${claims.scope || '—'}. Runtime=${assist.runtime}.`
+            : `Dashboard user session: ${who}. Access token ready. Runtime=${assist.runtime}.`
         );
       } catch (err) {
         if (cancelled) return;
         latestTokenRef.current = '';
+        if (err?.code === 'ASSIST_SCOPES_MISSING') {
+          const claims = err.claims;
+          const missing = missingScopesForRuntime(assist.runtime, claims);
+          setAuthBridge(
+            useAgentsApi
+              ? `Signed in, but this user token cannot call Agents API (missing ${missing.join(', ') || 'agents'}). Use Re-auth for agent scopes below, then sign in again.`
+              : `Dashboard is signed in, but this access token cannot unlock Assist (missing ${missing.join(', ') || 'required'} scope). Use Sign in to Assist below.`
+          );
+          setStatus(err.message);
+          return;
+        }
         setAuthBridge(
           err?.message ||
             'Could not read the dashboard Trimble ID access token. Sign out and sign in again.'
@@ -251,59 +380,76 @@ export default function AssistPanel({
   }, [
     open,
     isAuthenticated,
-    getAccessTokenSilently,
-    getTokens,
+    resolveAccessToken,
     user?.email,
     user?.name,
     user?.id,
+    assist.runtime,
+    useAgentsApi,
   ]);
 
   // Assist asks the parent for the dashboard access token over postMessage.
   // Do NOT redirect to login from this callback — that aborts the checklist.
   const provideToken = useCallback(async () => {
-    if (latestTokenRef.current) {
-      return latestTokenRef.current;
-    }
-    if (!isAuthenticated) {
-      throw new Error(
-        'Sign in with Trimble ID on the dashboard login screen first.'
-      );
-    }
-    const tokens = typeof getTokens === 'function'
-      ? await getTokens()
-      : { access_token: await getAccessTokenSilently() };
-    const accessToken = tokens?.access_token || '';
-    if (!accessToken) {
-      throw new Error('No Trimble ID access token available.');
-    }
-    latestTokenRef.current = accessToken;
-    const claims = inspectAccessToken(accessToken);
-    if (claims) {
-      console.info(
-        '[Assist] providing Trimble ID access token:',
-        `aud=${claims.aud || '—'}; scope=${claims.scope || '—'}`
-      );
-    }
+    const accessToken = await resolveAccessToken({
+      forceRefresh: tokenRejectedRef.current,
+    });
     return accessToken;
-  }, [getAccessTokenSilently, getTokens, isAuthenticated]);
+  }, [resolveAccessToken]);
 
   const handleUnauthorized = useCallback(async () => {
-    const claims = inspectAccessToken(latestTokenRef.current);
+    const previous = latestTokenRef.current;
+    const claims = inspectAccessToken(previous);
     const claimHint = claims
       ? ` Current token aud=${claims.aud || '—'}; scope=${claims.scope || '—'}.`
       : '';
-    setStatus(
-      `Assist rejected the dashboard Trimble ID access token.${claimHint} Add the Assist/Agent Studio application scope to VITE_TID_SCOPES (or VITE_ASSIST_API_SCOPE), restart, sign out/in on the dashboard, then retry. Or use Sign in inside the Assist chat below, then click Run Checklist again.`
-    );
+    tokenRejectedRef.current = true;
+    latestTokenRef.current = '';
     pendingAutoStartRef.current = true;
-    return 'Dashboard Trimble ID token was rejected by Assist.';
-  }, []);
+    // Always offer parent-side re-auth — Assist's own Sign in UI is unreliable
+    // in embedded browsers, and a rejected token usually means consent/scopes.
+    setNeedsAssistReauth(true);
+
+    try {
+      await resolveAccessToken({ forceRefresh: true });
+      // One reload so Chat UI re-requests config + the refreshed access token.
+      const iframe = iframeRef.current;
+      if (iframe && chatUrl && unauthorizedReloadsRef.current < 1) {
+        unauthorizedReloadsRef.current += 1;
+        readyRef.current = false;
+        setIframeReady(false);
+        const next = new URL(chatUrl, window.location.href);
+        next.searchParams.set('_host', String(Date.now()));
+        iframe.src = next.toString();
+        setStatus(
+          `Assist rejected the previous token; refreshed and reloading Assist.${claimHint}`
+        );
+        return 'Refreshed dashboard Trimble ID access token — Assist is reloading.';
+      }
+      setStatus(
+        `Assist still rejects this dashboard token.${claimHint} Your SPA app must be allowed to request Assist API scopes (models, skills) in Developer Console, and this stage agent must be usable by your account. Use Sign in to Assist to re-consent, or open Assist at assist stage in a normal browser tab.`
+      );
+      return 'Dashboard Trimble ID token was rejected by Assist.';
+    } catch {
+      setStatus(
+        `Assist rejected the dashboard Trimble ID access token.${claimHint} Use Sign in to Assist below so Trimble ID re-issues models+skills, then Run Checklist again.`
+      );
+      return 'Dashboard Trimble ID token was rejected by Assist.';
+    }
+  }, [resolveAccessToken, chatUrl]);
+
+  useEffect(() => {
+    provideTokenRef.current = provideToken;
+    handleUnauthorizedRef.current = handleUnauthorized;
+  }, [provideToken, handleUnauthorized]);
 
   const buildOnBeforeRun = useCallback(() => {
-    if (!control) {
+    const current = controlRef.current;
+    const q = quarterRef.current;
+    if (!current) {
       return { tools: { runTime: {}, global: {} }, runContext: { context: [] } };
     }
-    const { context } = buildAuditPayload(control, quarter);
+    const { context } = buildAuditPayload(current, q);
     return {
       tools: {
         runTime: {
@@ -327,11 +473,20 @@ export default function AssistPanel({
       },
       runContext: { context },
     };
-  }, [control, quarter, publishResult]);
+  }, [publishResult]);
+
+  useEffect(() => {
+    buildOnBeforeRunRef.current = buildOnBeforeRun;
+  }, [buildOnBeforeRun]);
 
   // Wire iframe ↔ host once the iframe exists. Keep listener while everOpened.
+  // Callbacks are read from refs so changing control/quarter does NOT tear down
+  // the postMessage bridge (that was dropping Assist auth mid-session).
   useLayoutEffect(() => {
-    if (!everOpened || !assist.configured || !chatOrigin) return undefined;
+    if (useAgentsApi) return undefined;
+    if (!everOpened || !assist.configured || !chatOrigin || !chatUrl) {
+      return undefined;
+    }
     const iframe = iframeRef.current;
     if (!iframe) return undefined;
 
@@ -350,13 +505,16 @@ export default function AssistPanel({
         agentId: assist.agentId,
         localization: { locale: 'en-US' },
         // Checklist agent uses Agent Studio skills — needs `skills` TID scope.
-        features: { skills: true },
+        features: { skills: true, debugLogging: true },
         uiConfig: {
           theme,
           contentVariant: ContentVariants.Chat,
           variant: ChatUiVariants.Minimal,
           chatInput: { buttons: [], hideModelSelection: true },
-          showSignIn: true,
+          // Must stay false: true shows Assist's own TID Sign in screen and
+          // ignores/overlays the parent-provided dashboard access token. That
+          // in-iframe Sign in also cannot open a TID popup in this browser.
+          showSignIn: false,
         },
       };
     };
@@ -365,10 +523,16 @@ export default function AssistPanel({
       iframe,
       chatOrigin,
       provideConfig,
-      provideToken,
-      buildOnBeforeRun,
-      handleUnauthorized
+      () => provideTokenRef.current(),
+      () => buildOnBeforeRunRef.current(),
+      () => handleUnauthorizedRef.current()
     );
+
+    // Force Chat UI to re-request config/token with the latest host settings
+    // (showSignIn:false). Plain same-src assignment is a no-op in browsers.
+    const next = new URL(chatUrl, window.location.href);
+    next.searchParams.set('_host', String(Date.now()));
+    iframe.src = next.toString();
 
     const handshakeTimer = window.setTimeout(() => {
       if (handshakeDone || readyRef.current) return;
@@ -394,16 +558,16 @@ export default function AssistPanel({
     assist.configured,
     assist.agentId,
     chatOrigin,
+    chatUrl,
     environment,
     theme,
-    provideToken,
-    buildOnBeforeRun,
-    handleUnauthorized,
     pageIsHttps,
+    useAgentsApi,
   ]);
 
   // Fallback: parse CHECKLIST_OUTPUT from chat events if the host tool was not called.
   useEffect(() => {
+    if (useAgentsApi) return undefined;
     if (!everOpened || !assist.configured || !chatOrigin) return undefined;
     return subscribeToChatEvents(chatOrigin, (event) => {
       if (event?.type !== 'run:ended') return;
@@ -424,9 +588,10 @@ export default function AssistPanel({
         publishResult({ status: parsed });
       }
     });
-  }, [everOpened, assist.configured, chatOrigin, publishResult]);
+  }, [everOpened, assist.configured, chatOrigin, publishResult, useAgentsApi]);
 
-  const startAudit = useCallback(() => {
+  const startAudit = useCallback(async () => {
+    if (runGuardRef.current || agentRunning) return;
     if (!control) {
       setStatus('Select a completed control first.');
       return;
@@ -442,6 +607,102 @@ export default function AssistPanel({
     }
     if (!assist.configured) {
       setStatus('Set VITE_ASSIST_AGENT_ID in .env to your Agent Studio UUID.');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      stashPendingChecklistRun({
+        controlId: control.id || control['Control ID'],
+        quarter,
+        autoStart: true,
+      });
+      setStatus(
+        'Sign-in required — opening Trimble ID, then the checklist run will resume.'
+      );
+      try {
+        await loginWithRedirect();
+      } catch (err) {
+        setStatus(
+          err?.message ||
+            'Could not start Trimble ID sign-in. Open the login screen, then Run Checklist again.'
+        );
+      }
+      return;
+    }
+
+    let accessToken = '';
+    try {
+      accessToken = await resolveAccessToken({
+        forceRefresh: tokenRejectedRef.current,
+      });
+    } catch (err) {
+      setStatus(err?.message || 'Auth is not ready.');
+      if (err?.code === 'ASSIST_SCOPES_MISSING') {
+        setNeedsAssistReauth(true);
+        stashPendingChecklistRun({
+          controlId: control.id || control['Control ID'],
+          quarter,
+          autoStart: true,
+        });
+      }
+      return;
+    }
+
+    if (useAgentsApi) {
+      runGuardRef.current = true;
+      runAbortRef.current?.abort();
+      const controller = new AbortController();
+      runAbortRef.current = controller;
+      setAgentRunning(true);
+      setAgentTranscript('');
+      setStatus(
+        `Starting checklist for ${payload.controlId} (${quarter}) with your login user token…`
+      );
+      try {
+        const result = await runAgentWithUserToken({
+          agentId: assist.agentId,
+          accessToken,
+          message: payload.message,
+          context: payload.context,
+          environment: assist.environment,
+          signal: controller.signal,
+          onEvent: (event) => {
+            if (event?.type === 'TEXT_MESSAGE_CONTENT' && event.delta) {
+              setAgentTranscript((prev) => prev + event.delta);
+            }
+          },
+        });
+        setAgentTranscript(result.text || '');
+        const parsed = parseOutputFromText(result.text);
+        if (parsed) {
+          publishResult({ status: parsed });
+          setStatus(
+            `Checklist finished via Agents API (${parsed}) using your user token.`
+          );
+        } else {
+          setStatus(
+            'Agent run finished. No CHECKLIST_OUTPUT line found — check the reply below.'
+          );
+        }
+      } catch (err) {
+        if (err?.name === 'AbortError') {
+          setStatus('Checklist run cancelled.');
+          return;
+        }
+        if (err?.code === 'AGENTS_SCOPE_MISSING') {
+          setNeedsAssistReauth(true);
+        }
+        if (err?.code === 'AGENTS_NOT_FOUND') {
+          setStatus(
+            `Agent ${assist.agentId} was not found for your user token. Share the agent with your user/org (Viewer) in Agent Studio — this path does not use the app client-credentials token.`
+          );
+          return;
+        }
+        setStatus(err?.message || 'Agent run failed.');
+      } finally {
+        setAgentRunning(false);
+        runGuardRef.current = false;
+      }
       return;
     }
 
@@ -473,12 +734,20 @@ export default function AssistPanel({
     }
   }, [
     assist.configured,
+    assist.agentId,
+    assist.environment,
     chatOrigin,
     control,
     quarter,
     iframeReady,
     embedError,
     autoStart,
+    resolveAccessToken,
+    useAgentsApi,
+    publishResult,
+    agentRunning,
+    isAuthenticated,
+    loginWithRedirect,
   ]);
 
   useEffect(() => {
@@ -487,14 +756,26 @@ export default function AssistPanel({
     }
     if (!open) {
       pendingAutoStartRef.current = false;
+      runAbortRef.current?.abort();
     }
   }, [open, autoStart, control]);
 
   useEffect(() => {
-    if (!open || !iframeReady || !pendingAutoStartRef.current) return;
+    if (!open || !pendingAutoStartRef.current) return;
+    // Wait for auth + scopes before consuming the auto-start latch.
+    if (!isAuthenticated) return;
+    if (needsAssistReauth) return;
+    if (!useAgentsApi && !iframeReady) return;
     pendingAutoStartRef.current = false;
-    startAudit();
-  }, [open, iframeReady, startAudit]);
+    void startAudit();
+  }, [
+    open,
+    iframeReady,
+    startAudit,
+    needsAssistReauth,
+    useAgentsApi,
+    isAuthenticated,
+  ]);
 
   const drivePreview = control
     ? driveLinkForQuarter(control, quarter)
@@ -502,15 +783,20 @@ export default function AssistPanel({
   const checklistName = control ? checklistLabel(control) : '';
   const knownSheet = control?.['TARGET SHEET'] || control?.['Target Sheet'] || '';
   const canRunChecklist = Boolean(
-    control && checklistName && drivePreview && (!assist.configured || iframeReady)
+    control &&
+      checklistName &&
+      drivePreview &&
+      assist.configured &&
+      (useAgentsApi || iframeReady)
   );
 
   if (!everOpened && !open) return null;
 
   return (
     <aside
-      className={`assist-panel${open ? '' : ' assist-panel--collapsed'}`}
-      aria-label="Trimble Assist run checklist"
+      ref={panelRef}
+      className={`assist-panel${open ? '' : ' assist-panel--collapsed'}${agentRunning ? ' is-running' : ''}`}
+      aria-label="Run checklist with Trimble agent"
       hidden={!open}
       inert={!open ? true : undefined}
     >
@@ -523,9 +809,9 @@ export default function AssistPanel({
             label="Run Checklist"
           />
           <p className="assist-panel-subtitle">
-            Passes your dashboard Trimble ID access token into Assist. Opens the
-            quarter Drive folder, uses the single Google Sheet inside as the
-            target, and runs your Agent Studio checklist skill.
+            {useAgentsApi
+              ? 'Calls the Agents API with your dashboard login user token (not the app client-credentials token). Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.'
+              : 'Passes your dashboard Trimble ID access token into Assist. Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.'}
           </p>
         </div>
         <ModusWcButton
@@ -555,18 +841,56 @@ export default function AssistPanel({
           variant="filled"
           color="primary"
           size="sm"
-          customClass="run-checklist-btn"
-          disabled={!canRunChecklist}
-          onButtonClick={startAudit}
+          customClass="run-checklist-btn cta-sheen ripple-host assist-run-cta"
+          disabled={!canRunChecklist || needsAssistReauth || agentRunning}
+          aria-busy={agentRunning || undefined}
+          onButtonClick={() => {
+            if (runGuardRef.current || agentRunning) return;
+            void startAudit();
+          }}
         >
           <ModusWcIcon name="check_circle" size="xs" decorative />
-          Run Checklist
+          <span className="assist-run-cta-label">
+            {agentRunning ? 'Running…' : 'Run Checklist'}
+          </span>
+        </ModusWcButton>
+        <ModusWcButton
+          variant="outline"
+          color="secondary"
+          size="sm"
+          onButtonClick={() => {
+            void reauthToAssist();
+          }}
+        >
+          <ModusWcIcon name="person" size="xs" decorative />
+          {useAgentsApi ? 'Re-auth for agent scopes' : 'Sign in to Assist'}
         </ModusWcButton>
       </div>
 
       {authBridge ? (
         <p className="assist-panel-auth" role="status">
           {authBridge}
+        </p>
+      ) : null}
+
+      {needsAssistReauth ? (
+        <p className="assist-panel-status" role="alert">
+          {useAgentsApi ? (
+            <>
+              This flow needs your <strong>login user</strong> Trimble ID token
+              with the <code>agents</code> scope. Sign out/in or use{' '}
+              <strong>Re-auth for agent scopes</strong> above. The n8n app
+              client-credentials token is not used here.
+            </>
+          ) : (
+            <>
+              Assist needs a dashboard Trimble ID token with{' '}
+              <code>models</code> and <code>skills</code> scopes. The Sign in
+              button inside the chat iframe usually cannot open a TID popup in
+              this browser — use <strong>Sign in to Assist</strong> above
+              instead.
+            </>
+          )}
         </p>
       ) : null}
 
@@ -637,7 +961,27 @@ export default function AssistPanel({
       ) : null}
 
       <div className="assist-panel-chat">
-        {assist.configured ? (
+        {!assist.configured ? (
+          <div className="assist-sdk-stub" role="status">
+            <p>
+              Set <code>VITE_ASSIST_AGENT_ID</code> in <code>.env</code> to the
+              UUID of your Agent Studio agent (the one that has the checklist
+              skill attached).
+            </p>
+          </div>
+        ) : useAgentsApi ? (
+          <div className="assist-sdk-stub assist-agent-transcript" role="log">
+            {agentTranscript ? (
+              <pre>{agentTranscript}</pre>
+            ) : (
+              <p>
+                Agent replies stream here. Runtime uses your SPA login user
+                token against the Agents API (
+                <code>VITE_AGENT_RUNTIME=api</code>).
+              </p>
+            )}
+          </div>
+        ) : (
           <iframe
             ref={iframeRef}
             title="Trimble Assist"
@@ -646,14 +990,6 @@ export default function AssistPanel({
             sandbox={ASSIST_IFRAME_SANDBOX}
             allow="clipboard-read; clipboard-write"
           />
-        ) : (
-          <div className="assist-sdk-stub" role="status">
-            <p>
-              Set <code>VITE_ASSIST_AGENT_ID</code> in <code>.env</code> to the
-              UUID of your Agent Studio agent (the one that has the checklist
-              skill attached).
-            </p>
-          </div>
         )}
       </div>
     </aside>

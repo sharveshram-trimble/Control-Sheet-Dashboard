@@ -1,0 +1,132 @@
+/*
+  ITGC Control Sheet — counterpart to Recon Agents Workspace
+
+  Shared Trimble Modus language:
+  Connect-blue masthead, blueprint canvas, ledger figures, Open Sans.
+  Yellow reserved for Run Checklist CTA (+ warning).
+*/
+
+:root {
+  /* Brand (locked to recon-agents-app / Modus) */
+  --trimble-blue: #0063a3;
+  --connect-blue: #00437b;
+  --highlight-blue: #019aeb;
+  --blue-pale: #dcedf9;
+  --trimble-gray: #252a2e;
+
+  --brand-blue: var(--trimble-blue);
+  --brand-blue-dark: #004f83;
+  --brand-blue-deeper: var(--connect-blue);
+  --brand-blue-light: #217cbb;
+  --brand-blue-pale: var(--blue-pale);
+  --brand-blue-mist: #f5f5f8;
+  --brand-yellow: #fbad26;
+  --brand-yellow-dark: #e49325;
+  --brand-yellow-pale: #fff5e4;
+
+  /* Neutrals */
+  --ink: #171c1e;
+  --ink-secondary: #353a40;
+  --slate: #585c65;
+  --muted: #6a6e79;
+  --line: #d9dbe3;
+  --line-strong: #b7b9c3;
+  --surface: #ffffff;
+  --surface-2: #e9eaf0;
+  --surface-3: #e3e4ea;
+
+  /* Status */
+  --ok: #1e8a44;
+  --ok-bg: #e0eccf;
+  --bad: #da212c;
+  --bad-bg: #fbd4d7;
+  --warn: #fbad26;
+  --warn-bg: #fff5e4;
+  --warn-text: #8a5300;
+  --info: #00437b;
+  --info-bg: #dcedf9;
+  --focus: var(--highlight-blue);
+
+  /* Atmosphere — blueprint counterpart (not radial mist soup) */
+  --blueprint-line: rgba(0, 99, 163, 0.07);
+  --canvas: var(--brand-blue-mist);
+  --nav-glass: var(--connect-blue);
+  --panel-shadow: 0 1px 2px rgba(23, 28, 30, 0.04), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  --accent-sheen: linear-gradient(90deg, var(--highlight-blue), var(--trimble-blue) 60%, transparent);
+  --cta-sheen: linear-gradient(135deg, #fbad26 0%, #e49325 100%);
+  --ledger-rule: linear-gradient(90deg, var(--highlight-blue), var(--trimble-blue) 60%, transparent);
+
+  /* Type */
+  --font-main: "Open Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: var(--font-main);
+  --type-2xs: 0.6875rem;
+  --type-xs: 0.75rem;
+  --type-sm: 0.8125rem;
+  --type-md: 0.875rem;
+  --type-lg: 1rem;
+  --type-xl: 1.25rem;
+  --type-2xl: 1.5rem;
+  --type-3xl: 2rem;
+
+  /* Motion — match recon fade-up personality */
+  --ease-brand: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-micro: 120ms var(--ease-brand);
+  --t-ui: 220ms var(--ease-brand);
+  --t-panel: 320ms var(--ease-brand);
+  --t-enter: 480ms var(--ease-brand);
+  --stagger: 48ms;
+  --motion-y: 8px;
+
+  /* Shape — recon radius 0.5rem family */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus);
+
+  /* Compat aliases */
+  --primary-blue: var(--brand-blue);
+  --primary-dark: var(--brand-blue-dark);
+  --primary-deep: var(--brand-blue-deeper);
+  --primary-light: var(--brand-blue-light);
+  --field: var(--brand-blue-mist);
+  --bg-app: var(--brand-blue-mist);
+  --bg-card: var(--surface);
+  --bg-subtle: var(--surface-2);
+  --bg-blue-tint: var(--brand-blue-pale);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-secondary);
+  --text-muted: var(--slate);
+  --text-faint: var(--muted);
+  --text-white: #ffffff;
+  --border-light: var(--line);
+  --border-subtle: var(--surface-3);
+  --border-medium: var(--line-strong);
+  --success: var(--ok);
+  --success-bg: var(--ok-bg);
+  --success-text: #006638;
+  --success-border: #4ea646;
+  --warning: var(--warn);
+  --warning-bg: var(--warn-bg);
+  --warning-text: var(--warn-text);
+  --warning-border: #fec157;
+  --danger: var(--bad);
+  --danger-bg: var(--bad-bg);
+  --danger-text: #ab1f26;
+  --danger-border: #e86363;
+  --signal-ok: var(--ok);
+  --signal-bad: var(--bad);
+  --accent-cyan: var(--focus);
+  --transition-fast: var(--t-micro);
+  --transition-normal: var(--t-ui);
+  --transition-panel: var(--t-panel);
+  --transition-enter: var(--t-enter);
+  --stagger-step: var(--stagger);
+  --motion-distance: var(--motion-y);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
+  --shadow-sm: var(--panel-shadow);
+  --shadow-md: var(--panel-shadow);
+  --shadow-lg: var(--panel-shadow);
+}

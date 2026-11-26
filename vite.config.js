@@ -606,7 +606,9 @@ function n8nLiveApiPlugin() {
               webhookProduction: `https://${WEBHOOK_HOST}${WEBHOOK_PATH}`,
               webhookTest: `https://${WEBHOOK_HOST}${WEBHOOK_TEST_PATH}`,
               mailWebhook: MAIL_WEBHOOK_PATH
-                ? `https://${WEBHOOK_HOST}${MAIL_WEBHOOK_PATH}`
+                ? /^https?:\/\//i.test(MAIL_WEBHOOK_PATH)
+                  ? MAIL_WEBHOOK_PATH
+                  : `https://${WEBHOOK_HOST}${MAIL_WEBHOOK_PATH}`
                 : null,
               tidConfigured: Boolean(TID_CLIENT_ID && TID_CLIENT_SECRET),
               staticWebhookAuth: Boolean(WEBHOOK_AUTH_STATIC),
@@ -647,5 +649,20 @@ export default defineConfig({
     open: false,
     host: true,
     // https provided by @vitejs/plugin-basic-ssl
+    // Browser → Agents API with the SPA *user* token (avoids localhost CORS).
+    // Target follows VITE_ASSIST_ENVIRONMENT (prod → agents.ai.trimble.com).
+    proxy: {
+      '/api/agents-proxy': {
+        target:
+          String(process.env.VITE_ASSIST_ENVIRONMENT || '')
+            .toLowerCase()
+            .match(/^(prod|production)$/)
+            ? 'https://agents.ai.trimble.com'
+            : 'https://agents.stage.trimble-ai.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/api\/agents-proxy/, ''),
+      },
+    },
   },
 });

@@ -1,5 +1,7 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ModusWcButton, ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
+import { fadeUp } from '../motion/presets';
 
 export default function LoginScreen({
   onLogin,
@@ -7,20 +9,31 @@ export default function LoginScreen({
   configured = true,
   missingHint = '',
 }) {
+  const reduceMotion = useReducedMotion();
+  const enter = fadeUp(reduceMotion, 12);
+
   return (
     <div className="tid-login-screen">
-      <div className="tid-login-card">
-        <img
-          className="tid-login-logo"
-          src="/trimble-logo.png"
-          alt="Trimble"
-          width={148}
-          height={52}
-        />
+      <motion.div
+        className="tid-login-stage"
+        initial={enter.initial}
+        animate={enter.animate}
+        transition={{ ...enter.transition, duration: 0.48 }}
+      >
+        <div className="tid-login-brand">
+          <span className="brand-emblem">
+            <img src="/brand/trimble-emblem.svg" alt="" width={28} height={27} />
+          </span>
+          <span className="tid-login-brand-copy">
+            <span className="brand-title">Trimble</span>
+            <span className="brand-kicker">Control Sheet · ITGC</span>
+          </span>
+        </div>
+        <p className="tid-login-kicker">Control operations</p>
         <h1>Control Sheet Dashboard</h1>
-        <p>
-          Sign in with Trimble ID to view live control sheet status, owners, and
-          checklist data.
+        <p className="tid-login-lead">
+          Sign in with Trimble ID to view live control status, owners, and run
+          checklist audits with your user token.
         </p>
 
         {!configured ? (
@@ -46,7 +59,7 @@ export default function LoginScreen({
           <ModusWcIcon name="person" size="sm" decorative />
           Sign in with Trimble ID
         </ModusWcButton>
-      </div>
+      </motion.div>
     </div>
   );
 }

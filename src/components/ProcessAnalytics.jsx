@@ -1,13 +1,74 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  ModusWcBadge,
-  ModusWcIcon,
+  ModusWcSelect,
   ModusWcTextInput,
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
+import StatusChip from './StatusChip';
 
-export default function ProcessAnalytics({ items, stats, ownerStats }) {
+const SORT_OPTIONS = [
+  { label: 'Open tickets first', value: 'open' },
+  { label: 'Least covered first', value: 'coverage-asc' },
+  { label: 'Most covered first', value: 'coverage-desc' },
+  { label: 'Most controls', value: 'controls' },
+  { label: 'Name A–Z', value: 'name' },
+];
+
+function ownerState(owner) {
+  if (owner.pendingControlsCount === 0) {
+    return { key: 'done', tone: 'ok', label: 'Complete' };
+  }
+  if (owner.completedControlsCount > 0) {
+    return { key: 'partial', tone: 'info', label: 'In progress' };
+  }
+  return { key: 'pending', tone: 'pending', label: 'Not started' };
+}
+
+function coverage(owner) {
+  return owner.totalControls > 0
+    ? owner.completedControlsCount / owner.totalControls
+    : 0;
+}
+
+function sortOwners(list, sortBy) {
+  const next = [...list];
+  switch (sortBy) {
+    case 'name':
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    case 'controls':
+      return next.sort(
+        (a, b) =>
+          b.totalControls - a.totalControls || a.name.localeCompare(b.name)
+      );
+    case 'coverage-asc':
+      return next.sort(
+        (a, b) =>
+          coverage(a) - coverage(b) ||
+          b.pendingControlsCount - a.pendingControlsCount ||
+          a.name.localeCompare(b.name)
+      );
+    case 'coverage-desc':
+      return next.sort(
+        (a, b) =>
+          coverage(b) - coverage(a) ||
+          a.pendingControlsCount - b.pendingControlsCount ||
+          a.name.localeCompare(b.name)
+      );
+    case 'open':
+    default:
+      return next.sort(
+        (a, b) =>
+          b.pendingControlsCount - a.pendingControlsCount ||
+          b.totalControls - a.totalControls ||
+          a.name.localeCompare(b.name)
+      );
+  }
+}
+
+export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const [ownerSearch, setOwnerSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('open');
 
   const accessControls = items.filter((i) => i['Sub-Process'] === 'Access Management');
   const changeControls = items.filter((i) => i['Sub-Process'] === 'Change Management');
@@ -16,10 +77,10 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
   const changeCompleted = changeControls.filter((i) => i.isCompleted).length;
 
   const accessPct = accessControls.length
-    ? ((accessCompleted / accessControls.length) * 100).toFixed(1)
+    ? (accessCompleted / accessControls.length) * 100
     : 0;
   const changePct = changeControls.length
-    ? ((changeCompleted / changeControls.length) * 100).toFixed(1)
+    ? (changeCompleted / changeControls.length) * 100
     : 0;
 
   const appMap = {};
@@ -34,21 +95,43 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
     .map(([app, data]) => ({
       app,
       ...data,
-      pct: ((data.completed / data.total) * 100).toFixed(0),
+      pct: data.total > 0 ? (data.completed / data.total) * 100 : 0,
     }))
-    .sort((a, b) => b.completed - a.completed || b.total - a.total);
-
-  const filteredOwners = ownerStats
-    .filter(
-      (o) =>
-        o.name.toLowerCase().includes(ownerSearch.toLowerCase()) ||
-        o.apps.some((a) => a.toLowerCase().includes(ownerSearch.toLowerCase()))
-    )
     .sort(
       (a, b) =>
-        b.completionPercentage - a.completionPercentage ||
-        a.name.localeCompare(b.name)
+        a.completed / a.total - b.completed / b.total ||
+        b.total - a.total ||
+        a.app.localeCompare(b.app)
     );
+
+  const statusCounts = useMemo(() => {
+    const counts = { all: ownerStats.length, done: 0, partial: 0, pending: 0 };
+    ownerStats.forEach((o) => {
+      counts[ownerState(o).key] += 1;
+    });
+    return counts;
+  }, [ownerStats]);
+
+  const filteredOwners = useMemo(() => {
+    const q = ownerSearch.trim().toLowerCase();
+    const matched = ownerStats.filter((o) => {
+      const state = ownerState(o);
+      if (statusFilter !== 'all' && state.key !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        o.name.toLowerCase().includes(q) ||
+        o.apps.some((a) => a.toLowerCase().includes(q))
+      );
+    });
+    return sortOwners(matched, sortBy);
+  }, [ownerStats, ownerSearch, statusFilter, sortBy]);
+
+  const statusFilters = [
+    { id: 'all', label: 'All', count: statusCounts.all },
+    { id: 'pending', label: 'Not started', count: statusCounts.pending },
+    { id: 'partial', label: 'In progress', count: statusCounts.partial },
+    { id: 'done', label: 'Complete', count: statusCounts.done },
+  ];
 
   const getInitials = (name) => {
     if (!name) return '??';
@@ -63,149 +146,219 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
         <div className="analytics-panel-header">
           <div>
             <h3>
-              Individual Owner Progress ({ownerStats.length} Owners)
+              Owner progress ({filteredOwners.length}
+              {filteredOwners.length !== ownerStats.length
+                ? ` of ${ownerStats.length}`
+                : ''}
+              )
             </h3>
-            <p>
-              Detailed completion percentage and verified ticket status for each
-              control owner
-            </p>
+            <p>Filter by status, sort the grid, search owner or application.</p>
+          </div>
+        </div>
+
+        <div className="analytics-toolbar">
+          <div
+            className="analytics-filter-row"
+            role="tablist"
+            aria-label="Owner status filter"
+          >
+            {statusFilters.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === f.id}
+                className={`checklist-filter-chip${statusFilter === f.id ? ' is-active' : ''}`}
+                onClick={() => setStatusFilter(f.id)}
+              >
+                {f.label}
+                <span className="checklist-filter-count">{f.count}</span>
+              </button>
+            ))}
           </div>
 
-          <ModusWcTextInput
-            size="sm"
-            bordered
-            includeSearch
-            includeClear
-            type="search"
-            placeholder="Search owner or application..."
-            value={ownerSearch}
-            aria-label="Search owners"
-            customClass="analytics-search-input"
-            onInputChange={(e) => setOwnerSearch(readInputString(e))}
-          />
+          <div className="analytics-toolbar-actions">
+            <ModusWcSelect
+              size="sm"
+              bordered
+              label=""
+              aria-label="Sort owners"
+              value={sortBy}
+              options={SORT_OPTIONS}
+              customClass="analytics-sort-select"
+              onInputChange={(e) =>
+                setSortBy(readInputString(e) || 'open')
+              }
+            />
+            <ModusWcTextInput
+              size="sm"
+              bordered
+              includeSearch
+              includeClear
+              type="search"
+              placeholder="Search owner or application…"
+              value={ownerSearch}
+              aria-label="Search owners"
+              customClass="analytics-search-input"
+              onInputChange={(e) => setOwnerSearch(readInputString(e))}
+            />
+          </div>
         </div>
 
-        <div className="owner-progress-grid">
-          {filteredOwners.map((owner) => {
-            const isFullyDone = owner.pendingControlsCount === 0;
-            const hasStarted = owner.completedControlsCount > 0;
+        {filteredOwners.length === 0 ? (
+          <div className="owner-empty-state">
+            <p>No owners match this filter or search.</p>
+            <button
+              type="button"
+              className="chip-text-button"
+              onClick={() => {
+                setStatusFilter('all');
+                setOwnerSearch('');
+              }}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="owner-progress-grid">
+            {filteredOwners.map((owner) => {
+              const state = ownerState(owner);
+              const ticketed = owner.completedControlsCount;
+              const total = owner.totalControls;
+              const barPct = total > 0 ? (ticketed / total) * 100 : 0;
 
-            return (
-              <div
-                key={owner.name}
-                className={`owner-progress-card ${isFullyDone ? 'done' : hasStarted ? 'partial' : 'pending'}`}
-              >
-                <div className="owner-card-top">
-                  <div className="owner-profile">
-                    <div
-                      className={`owner-avatar ${isFullyDone ? 'completed' : hasStarted ? '' : 'pending'}`}
-                    >
-                      {getInitials(owner.name)}
+              return (
+                <div
+                  key={owner.name}
+                  className={`owner-progress-card ${state.key}`}
+                >
+                  <div className="owner-card-top">
+                    <div className="owner-profile">
+                      <div
+                        className={`owner-avatar ${
+                          state.key === 'done'
+                            ? 'completed'
+                            : state.key === 'pending'
+                              ? 'pending'
+                              : ''
+                        }`}
+                      >
+                        {getInitials(owner.name)}
+                      </div>
+                      <div className="owner-details">
+                        <h4>{owner.name}</h4>
+                        <div className="owner-app-meta">
+                          {owner.apps.join(', ')}
+                        </div>
+                      </div>
                     </div>
-                    <div className="owner-details">
-                      <h4>{owner.name}</h4>
-                      <div className="owner-app-meta">{owner.apps.join(', ')}</div>
+
+                    <StatusChip tone={state.tone} label={state.label} compact />
+                  </div>
+
+                  <div className="owner-progress-meter">
+                    <div className="progress-meta-row">
+                      <span>
+                        <strong className="num">{ticketed}</strong> of{' '}
+                        <strong className="num">{total}</strong> ticketed
+                      </span>
+                      {owner.pendingControlsCount > 0 ? (
+                        <span className="progress-meta-pending">
+                          {owner.pendingControlsCount} open
+                        </span>
+                      ) : (
+                        <span className="progress-meta-done">All clear</span>
+                      )}
+                    </div>
+                    <div
+                      className="progress-track"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={total}
+                      aria-valuenow={ticketed}
+                      aria-label={`${ticketed} of ${total} controls ticketed for ${owner.name}`}
+                    >
+                      <div
+                        className={`progress-fill ${
+                          state.key === 'done'
+                            ? 'success'
+                            : state.key === 'partial'
+                              ? 'primary'
+                              : 'idle'
+                        }`}
+                        style={{ width: `${barPct}%` }}
+                      />
                     </div>
                   </div>
 
-                  <ModusWcBadge
-                    color={isFullyDone ? 'success' : hasStarted ? 'primary' : 'warning'}
-                    size="sm"
-                    variant="filled"
-                  >
-                    {isFullyDone ? '100% Done' : `${owner.completionPercentage}%`}
-                  </ModusWcBadge>
+                  <ul className="owner-control-rows">
+                    {owner.controls.map((c) => {
+                      const done = c.isCompleted;
+                      return (
+                        <li
+                          key={c.id}
+                          className={`owner-control-row ${done ? 'is-done' : 'is-open'}`}
+                        >
+                          <span className="owner-control-id">
+                            {c['Control ID']}
+                          </span>
+                          <span className="owner-control-status">
+                            {done
+                              ? c['TICKET NUMBER'] || 'Ticketed'
+                              : 'Missing ticket'}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
-
-                <div>
-                  <div className="progress-meta-row">
-                    <span>
-                      {owner.completedControlsCount} of {owner.totalControls} Controls
-                      Verified
-                    </span>
-                    <span className={isFullyDone ? 'text-success' : 'text-primary'}>
-                      {owner.completionPercentage}%
-                    </span>
-                  </div>
-                  <div className="progress-track">
-                    <div
-                      className={`progress-fill ${isFullyDone ? 'success' : hasStarted ? 'primary' : ''}`}
-                      style={{ width: `${owner.completionPercentage}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="owner-controls-chips">
-                  {owner.controls.map((c) => (
-                    <ModusWcBadge
-                      key={c.id}
-                      color={c.isCompleted ? 'success' : 'warning'}
-                      size="sm"
-                      variant="outlined"
-                    >
-                      {c['Control ID']}: {c['TICKET NUMBER'] || 'Missing'}
-                    </ModusWcBadge>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="subprocess-grid">
-        <div className="stat-tile subprocess-tile">
-          <div className="stat-header">
-            <div>
-              <span className="stat-title">Sub-Process 02.05</span>
-              <h3>Access Management</h3>
-            </div>
-            <div className="stat-icon blue">
-              <ModusWcIcon name="dashboard" size="md" decorative />
-            </div>
-          </div>
-
+        <div className="subprocess-tile">
+          <p className="subprocess-kicker">02.05</p>
+          <h3>Access Management</h3>
           <div className="subprocess-progress">
             <div className="progress-meta-row">
-              <span>Completion: {accessPct}%</span>
               <span>
-                {accessCompleted} of {accessControls.length} Controls
+                <strong className="num">{accessCompleted}</strong> of{' '}
+                <strong className="num">{accessControls.length}</strong> ticketed
               </span>
             </div>
             <div className="progress-track">
-              <div className="progress-fill primary" style={{ width: `${accessPct}%` }} />
+              <div
+                className="progress-fill primary"
+                style={{ width: `${accessPct}%` }}
+              />
             </div>
           </div>
-
           <p className="subprocess-desc">
             Periodic system access reviews across financial and infrastructure
             applications.
           </p>
         </div>
 
-        <div className="stat-tile subprocess-tile">
-          <div className="stat-header">
-            <div>
-              <span className="stat-title">Sub-Process 01.04</span>
-              <h3>Change Management</h3>
-            </div>
-            <div className="stat-icon amber">
-              <ModusWcIcon name="shield" size="md" decorative />
-            </div>
-          </div>
-
+        <div className="subprocess-tile">
+          <p className="subprocess-kicker">01.04</p>
+          <h3>Change Management</h3>
           <div className="subprocess-progress">
             <div className="progress-meta-row">
-              <span>Completion: {changePct}%</span>
               <span>
-                {changeCompleted} of {changeControls.length} Controls
+                <strong className="num">{changeCompleted}</strong> of{' '}
+                <strong className="num">{changeControls.length}</strong> ticketed
               </span>
             </div>
             <div className="progress-track">
-              <div className="progress-fill warning" style={{ width: `${changePct}%` }} />
+              <div
+                className="progress-fill primary"
+                style={{ width: `${changePct}%` }}
+              />
             </div>
           </div>
-
           <p className="subprocess-desc">
             Monitoring and approvals of system changes deployed into production
             environments.
@@ -214,50 +367,43 @@ export default function ProcessAnalytics({ items, stats, ownerStats }) {
       </div>
 
       <div className="table-section-card analytics-panel">
-        <h3 className="app-breakdown-title">
-          Application-Level Compliance Breakdown ({appList.length} Applications)
-        </h3>
+        <div className="analytics-panel-header">
+          <div>
+            <h3>Applications ({appList.length})</h3>
+            <p>Ticket coverage by application — least covered first.</p>
+          </div>
+        </div>
 
         <div className="app-breakdown-grid">
-          {appList.map((item) => (
-            <div
-              key={item.app}
-              className={`app-breakdown-card ${
-                item.completed === item.total
-                  ? 'done'
-                  : item.completed > 0
-                    ? 'partial'
-                    : 'idle'
-              }`}
-            >
-              <div className="app-breakdown-top">
-                <span className="app-name">{item.app}</span>
-                <span
-                  className={
-                    item.completed === item.total
-                      ? 'text-success'
-                      : item.completed > 0
-                        ? 'text-primary'
-                        : 'text-muted'
-                  }
-                >
-                  {item.pct}%
-                </span>
+          {appList.map((item) => {
+            const done = item.completed === item.total;
+            const started = item.completed > 0;
+            return (
+              <div
+                key={item.app}
+                className={`app-breakdown-card ${
+                  done ? 'done' : started ? 'partial' : 'idle'
+                }`}
+              >
+                <div className="app-breakdown-top">
+                  <span className="app-name">{item.app}</span>
+                  <span className="app-breakdown-count num">
+                    {item.completed}/{item.total}
+                  </span>
+                </div>
+                <div className="progress-track thin">
+                  <div
+                    className={`progress-fill ${done ? 'success' : started ? 'primary' : 'idle'}`}
+                    style={{ width: `${item.pct}%` }}
+                  />
+                </div>
+                <div className="app-breakdown-meta">
+                  <span>{item.completed} ticketed</span>
+                  <span>{item.total - item.completed} pending</span>
+                </div>
               </div>
-              <div className="progress-track thin">
-                <div
-                  className={`progress-fill ${item.completed === item.total ? 'success' : 'primary'}`}
-                  style={{ width: `${item.pct}%` }}
-                />
-              </div>
-              <div className="app-breakdown-meta">
-                <span>
-                  {item.completed} of {item.total} Done
-                </span>
-                <span>{item.total - item.completed} Pending</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

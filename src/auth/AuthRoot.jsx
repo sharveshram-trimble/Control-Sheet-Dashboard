@@ -12,7 +12,8 @@ import LoginScreen from './LoginScreen';
 function AuthLoading({ message = 'Checking Trimble ID session…' }) {
   return (
     <div className="tid-login-screen">
-      <div className="tid-login-card tid-login-card-muted">
+      <div className="tid-login-atmosphere" aria-hidden="true" />
+      <div className="tid-login-stage tid-login-card-muted">
         <p>{message}</p>
       </div>
     </div>
@@ -160,7 +161,31 @@ function AuthApp() {
   );
 }
 
+function UiPreviewApp() {
+  const handleRedirect = useCallback(() => {}, []);
+  if (!tidClient) {
+    return <App />;
+  }
+  return (
+    <TIDProvider
+      tidClient={tidClient}
+      checkRedirectUrlMatch={false}
+      onRedirectCallback={handleRedirect}
+    >
+      <App />
+    </TIDProvider>
+  );
+}
+
 export default function AuthRoot() {
+  // DEV-only: ?uiPreview=1 skips the auth gate so surfaces can be reviewed offline.
+  if (
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).has('uiPreview')
+  ) {
+    return <UiPreviewApp />;
+  }
+
   if (!tidClient) {
     return <MissingConfigApp />;
   }
