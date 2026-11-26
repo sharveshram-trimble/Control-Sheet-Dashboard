@@ -3,6 +3,29 @@
   Unlayered on purpose: Modus rules are unlayered and beat anything inside Tailwind's @layer.
 */
 
+/*
+  Soften light mode: Modus modern light uses pure #fff for the page canvas, which reads as
+  glare on large dashboards. Keep tokens otherwise; only lift the page off pure white.
+*/
+[data-theme='modus-modern-light'] {
+  --modus-wc-color-base-page: var(--modus-wc-color-gray-light);
+}
+
+/*
+  Status badges: DaisyUI .modus-wc-badge-sm uses height/line-height 1rem. In a narrow table
+  cell the label wraps and the second line is crushed into the first. Force a single line
+  and let height follow content.
+*/
+modus-wc-badge.status-badge .modus-wc-badge,
+modus-wc-table modus-wc-badge .modus-wc-badge {
+  align-items: center;
+  height: auto;
+  max-height: none;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: visible;
+}
+
 /* Hide slotted content that must stay mounted (React must not remove nodes inside Modus hosts). */
 .surface-hidden {
   display: none !important;

@@ -22,12 +22,16 @@ export function resolveStatusTone(tone) {
  * Build a `modus-wc-badge` element (with a 2.0 icon) for use inside a modus-wc-table
  * `cellRenderer`, which can only return a string or an HTMLElement.
  */
-export function createStatusBadgeElement(tone, label, { compact = true } = {}) {
+export function createStatusBadgeElement(tone, label, { compact: _compact = true } = {}) {
   const meta = resolveStatusTone(tone);
 
   const badge = document.createElement('modus-wc-badge');
   badge.color = meta.color;
-  badge.size = compact ? 'sm' : 'md';
+  // Table cells often squeeze the Status column; sm badges lock height to 1rem so a
+  // wrapped "Missing ticket" label stacks on itself. md + nowrap (see surface-helpers)
+  // keeps icon + label on one readable line.
+  badge.size = 'md';
+  badge.classList.add('status-badge');
 
   const icon = document.createElement('modus-wc-icon');
   icon.name = meta.icon;

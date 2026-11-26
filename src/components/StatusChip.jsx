@@ -9,7 +9,11 @@ import { resolveStatusTone } from '../utils/statusTones';
 export default function StatusChip({ tone = 'pending', label, compact = false }) {
   const meta = resolveStatusTone(tone);
   return (
-    <ModusWcBadge color={meta.color} size={compact ? 'sm' : 'md'}>
+    <ModusWcBadge
+      className="status-badge"
+      color={meta.color}
+      size={compact ? 'sm' : 'md'}
+    >
       <ModusWcIcon
         name={meta.icon}
         version="2.0"

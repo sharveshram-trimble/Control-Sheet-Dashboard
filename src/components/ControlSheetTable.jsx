@@ -125,7 +125,7 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
         id: 'status',
         header: 'Status',
         accessor: 'status',
-        width: '10rem',
+        width: '11.5rem',
         sortable: true,
         cellRenderer: (value) =>
           createStatusBadgeElement(value === 'Ticketed' ? 'ok' : 'warn', value),

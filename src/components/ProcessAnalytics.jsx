@@ -95,7 +95,7 @@ const getInitials = (name) => {
 function StatusBadge({ tone, label }) {
   const meta = resolveStatusTone(tone);
   return (
-    <ModusWcBadge color={meta.color} size="sm">
+    <ModusWcBadge className="status-badge" color={meta.color} size="sm">
       <ModusWcIcon
         name={meta.icon}
         version="2.0"
