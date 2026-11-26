@@ -65,8 +65,12 @@ export default function Header({
             tabs={tabs}
             activeTabIndex={activeTabIndex}
             onTabChange={(e) => {
-              const idx = e.detail?.newTab ?? 0;
-              setActiveTab(TAB_KEYS[idx] || 'overview');
+              const idx =
+                e?.detail?.newTab ??
+                e?.detail?.detail?.newTab ??
+                e?.newTab ??
+                0;
+              setActiveTab(TAB_KEYS[Number(idx)] || 'overview');
             }}
           />
         </nav>

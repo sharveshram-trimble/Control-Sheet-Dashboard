@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ModusWcAlert, ModusWcToast } from '@trimble-oss/moduswebcomponents-react';
 import Header from './components/Header';
 import HeroProgress from './components/HeroProgress';
@@ -280,6 +281,7 @@ export default function App() {
   const showSkeleton = !isUiPreview && items.length === 0 && syncState === 'loading';
   const showSyncError =
     !isUiPreview && items.length === 0 && syncState === 'error';
+  const reduceMotion = useReducedMotion();
 
   return (
     <div className="app-container">
@@ -309,79 +311,88 @@ export default function App() {
           </div>
         ) : (
           <>
-            <HeroProgress stats={stats} />
+            {activeTab !== 'checklist' ? <HeroProgress stats={stats} /> : null}
 
-            <div key={activeTab} className="tab-panel motion-enter">
-              {activeTab === 'overview' && (
-                <TwoColumnOwners
-                  ownerStats={ownerStats}
-                  onSelectControl={setSelectedControl}
-                  onRunChecklist={handleRunChecklist}
-                  showToast={showToast}
-                  onSendIncompleteMail={async (payload) => {
-                    try {
-                      const res = await fetch('/api/send-incomplete-mail', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                      });
-                      const json = await res.json().catch(() => ({}));
-                      if (!res.ok || json.success === false) {
+            <AnimatePresence mode="sync">
+              <motion.div
+                key={activeTab}
+                className="tab-panel"
+                initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+                transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
+              >
+                {activeTab === 'overview' && (
+                  <TwoColumnOwners
+                    ownerStats={ownerStats}
+                    onSelectControl={setSelectedControl}
+                    onRunChecklist={handleRunChecklist}
+                    showToast={showToast}
+                    onSendIncompleteMail={async (payload) => {
+                      try {
+                        const res = await fetch('/api/send-incomplete-mail', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload),
+                        });
+                        const json = await res.json().catch(() => ({}));
+                        if (!res.ok || json.success === false) {
+                          showToast(
+                            json.message ||
+                              json.error ||
+                              'Failed to send reminder email',
+                            'error'
+                          );
+                          return;
+                        }
+                        const kind =
+                          payload.mailType === 'follow_up'
+                            ? 'Follow-up'
+                            : payload.mailType === 'draft'
+                              ? 'Draft'
+                              : 'Reminder';
                         showToast(
                           json.message ||
-                            json.error ||
-                            'Failed to send reminder email',
+                            `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
+                          'success'
+                        );
+                      } catch (err) {
+                        showToast(
+                          err.message || 'Failed to reach mail workflow',
                           'error'
                         );
-                        return;
                       }
-                      const kind =
-                        payload.mailType === 'follow_up'
-                          ? 'Follow-up'
-                          : payload.mailType === 'draft'
-                            ? 'Draft'
-                            : 'Reminder';
-                      showToast(
-                        json.message ||
-                          `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
-                        'success'
-                      );
-                    } catch (err) {
-                      showToast(
-                        err.message || 'Failed to reach mail workflow',
-                        'error'
-                      );
-                    }
-                  }}
-                />
-              )}
+                    }}
+                  />
+                )}
 
-              {activeTab === 'matrix' && (
-                <ControlSheetTable
-                  items={items}
-                  onSelectControl={setSelectedControl}
-                  showToast={showToast}
-                />
-              )}
+                {activeTab === 'matrix' && (
+                  <ControlSheetTable
+                    items={items}
+                    onSelectControl={setSelectedControl}
+                    showToast={showToast}
+                  />
+                )}
 
-              {activeTab === 'progress' && (
-                <ProcessAnalytics
-                  items={items}
-                  stats={stats}
-                  ownerStats={ownerStats}
-                />
-              )}
+                {activeTab === 'progress' && (
+                  <ProcessAnalytics
+                    items={items}
+                    stats={stats}
+                    ownerStats={ownerStats}
+                  />
+                )}
 
-              {activeTab === 'checklist' && (
-                <ChecklistView
-                  items={items}
-                  onSelectControl={setSelectedControl}
-                  focusControl={checklistFocusControl}
-                  onFocusControlHandled={handleChecklistFocusHandled}
-                  onChecklistResult={handleChecklistResult}
-                />
-              )}
-            </div>
+                {activeTab === 'checklist' && (
+                  <ChecklistView
+                    items={items}
+                    onSelectControl={setSelectedControl}
+                    focusControl={checklistFocusControl}
+                    onFocusControlHandled={handleChecklistFocusHandled}
+                    onChecklistResult={handleChecklistResult}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </>
         )}
       </main>

@@ -15,6 +15,7 @@
     "@trimble-oss/moduswebcomponents-react": "^1.20.0-react19",
     "@trimble-oss/trimble-id-react": "1.0.4",
     "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.43.0",
     "lucide-react": "^1.61.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
