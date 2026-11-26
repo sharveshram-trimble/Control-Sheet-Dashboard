@@ -8,7 +8,14 @@ import { useAuth } from '@trimble-oss/trimble-id-react';
 
 const TAB_KEYS = ['overview', 'matrix', 'progress', 'checklist'];
 
-export default function Header({ activeTab, setActiveTab }) {
+export default function Header({
+  activeTab,
+  setActiveTab,
+  syncState = 'idle',
+  lastSyncedAt = null,
+  syncError = null,
+  onRetrySync,
+}) {
   const { user, logout } = useAuth();
   const tabs = useMemo(
     () => [
@@ -23,6 +30,15 @@ export default function Header({ activeTab, setActiveTab }) {
   const activeTabIndex = Math.max(0, TAB_KEYS.indexOf(activeTab));
   const displayName =
     user?.name || user?.email || user?.preferred_username || '';
+
+  const syncLabel =
+    syncState === 'loading'
+      ? 'Syncing…'
+      : syncState === 'error'
+        ? syncError || 'Sync failed'
+        : lastSyncedAt
+          ? `Synced ${lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : 'Waiting for sheet';
 
   return (
     <header className="top-nav">
@@ -56,6 +72,24 @@ export default function Header({ activeTab, setActiveTab }) {
         </nav>
 
         <div className="nav-actions">
+          <div
+            className={`nav-sync nav-sync--${syncState}`}
+            role="status"
+            aria-live="polite"
+          >
+            <span className="nav-sync-label">{syncLabel}</span>
+            {syncState === 'error' && typeof onRetrySync === 'function' ? (
+              <ModusWcButton
+                color="tertiary"
+                variant="outlined"
+                size="xs"
+                aria-label="Retry sheet sync"
+                onButtonClick={onRetrySync}
+              >
+                Retry
+              </ModusWcButton>
+            ) : null}
+          </div>
           {displayName ? (
             <span className="nav-user-label" title={displayName}>
               {displayName}

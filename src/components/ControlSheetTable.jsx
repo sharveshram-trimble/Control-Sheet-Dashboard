@@ -173,12 +173,20 @@ export default function ControlSheetTable({ items, showToast }) {
                 >
                   <td>
                     {item.isCompleted ? (
-                      <span title="Ticket Verified in Control Sheet">
+                      <span
+                        className="status-cell status-cell--ok"
+                        title="Ticket verified in control sheet"
+                      >
                         <ModusWcIcon name="check_circle" size="sm" decorative />
+                        <span className="visually-hidden">Ticketed</span>
                       </span>
                     ) : (
-                      <span title="Ticket Missing">
+                      <span
+                        className="status-cell status-cell--warn"
+                        title="Ticket missing"
+                      >
                         <ModusWcIcon name="warning" size="sm" decorative />
+                        <span className="visually-hidden">Missing ticket</span>
                       </span>
                     )}
                   </td>

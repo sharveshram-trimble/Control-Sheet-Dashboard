@@ -5,7 +5,7 @@ import {
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
 
-export default function ProcessAnalytics({ items, stats, ownerStats }) {
+export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const [ownerSearch, setOwnerSearch] = useState('');
 
   const accessControls = items.filter((i) => i['Sub-Process'] === 'Access Management');

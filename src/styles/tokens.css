@@ -49,6 +49,27 @@
 
   Anti-defaults check: avoided purple gradients, cream+terracotta, broadsheet
   rules, Inter/Roboto-only stacks, emoji ornamentation, glow piles.
+
+  --- Phase A addendum (HCI + motion) ---
+  Journey: sign in → scan % ticketed → open control / mail / Run Checklist →
+  OUTPUT feedback. States: loading (skeleton), empty (next action), ready,
+  sync-error (retry), checklist pending/disabled, permission-denied (login).
+
+  Motion personality: Corporate + thin Premium on first entrance only.
+  Signature easing: cubic-bezier(0.2, 0, 0, 1)
+  Durations: 150 / 250–320 / 400–500ms · stagger 50ms
+  Properties: opacity + translateY only; reduced-motion → opacity instant.
+
+  ASCII first viewport:
+  +----------------------------------------------------------+
+  | logo  Control Sheet · ITGC     [tabs]     sync · user    |
+  |======= status rail (% + 4 KPIs) =========================|
+  |  owners / matrix / progress / checklist (one primary)     |
+  |                                       [checklist rail→]  |
+  +----------------------------------------------------------+
+
+  Remove: soft multi-shadow card farm, purple accents, bounce easing,
+  decorative icon bubbles, equal-weight KPI chrome.
 */
 
 :root {
@@ -57,6 +78,7 @@
   --trimble-blue: var(--modus-wc-color-trimble-blue, #0063a3);
   --connect: var(--modus-wc-color-connect-blue, #00437b);
   --field: #f3f6f9;
+  --trimble-yellow: var(--modus-wc-color-trimble-yellow, #fbad26);
   --signal-ok: var(--modus-wc-color-green, #1e8a44);
   --signal-bad: var(--modus-wc-color-red, #da212c);
 
@@ -122,14 +144,17 @@
   --shadow-xl: 0 20px 25px -5px rgba(14, 65, 108, 0.1), 0 8px 10px -6px rgba(14, 65, 108, 0.04);
   --shadow-blue: 0 12px 28px -8px rgba(0, 99, 163, 0.28);
 
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-panel: 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  --transition-bounce: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --ease-brand: cubic-bezier(0.2, 0, 0, 1);
+  --transition-fast: 150ms var(--ease-brand);
+  --transition-normal: 250ms var(--ease-brand);
+  --transition-panel: 320ms var(--ease-brand);
+  --transition-enter: 420ms var(--ease-brand);
+  --stagger-step: 50ms;
+  --motion-distance: 10px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
   --radius-full: 9999px;
 
   --type-xs: 0.75rem;
