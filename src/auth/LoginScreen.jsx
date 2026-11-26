@@ -9,18 +9,20 @@ export default function LoginScreen({
 }) {
   return (
     <div className="tid-login-screen">
-      <div className="tid-login-card">
+      <div className="tid-login-atmosphere" aria-hidden="true" />
+      <div className="tid-login-stage">
         <img
           className="tid-login-logo"
           src="/trimble-logo.png"
           alt="Trimble"
-          width={148}
+          width={168}
           height={52}
         />
+        <p className="tid-login-kicker">ITGC operations</p>
         <h1>Control Sheet Dashboard</h1>
-        <p>
-          Sign in with Trimble ID to view live control sheet status, owners, and
-          checklist data.
+        <p className="tid-login-lead">
+          Sign in with Trimble ID to view live control status, owners, and run
+          checklist audits with your user token.
         </p>
 
         {!configured ? (

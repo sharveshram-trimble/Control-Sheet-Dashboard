@@ -33,10 +33,11 @@ export default function Header({ activeTab, setActiveTab }) {
             src="/trimble-logo.png"
             alt="Trimble"
             width={132}
-            height={46}
+            height={40}
           />
           <div className="brand-info">
-            <h1>Control Sheet Dashboard</h1>
+            <p className="brand-kicker">ITGC · Trimble</p>
+            <h1 className="brand-title">Control Sheet Dashboard</h1>
           </div>
         </div>
 
@@ -63,7 +64,7 @@ export default function Header({ activeTab, setActiveTab }) {
           <ModusWcButton
             color="tertiary"
             variant="outlined"
-            size="sm"
+            size="xs"
             aria-label="Sign out"
             onButtonClick={async () => {
               await logout();

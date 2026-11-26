@@ -12,7 +12,8 @@ import LoginScreen from './LoginScreen';
 function AuthLoading({ message = 'Checking Trimble ID session…' }) {
   return (
     <div className="tid-login-screen">
-      <div className="tid-login-card tid-login-card-muted">
+      <div className="tid-login-atmosphere" aria-hidden="true" />
+      <div className="tid-login-stage tid-login-card-muted">
         <p>{message}</p>
       </div>
     </div>

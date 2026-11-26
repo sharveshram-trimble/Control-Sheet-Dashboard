@@ -1,0 +1,142 @@
+/*
+  Visual token plan — Control Sheet Dashboard (Trimble ITGC)
+
+  Subject: Internal ITGC control operations dashboard
+  Audience: Trimble control owners and auditors
+  Primary job: find a control → act (mail / run checklist) with clear status
+
+  Colours (named):
+  - ink          #252a2e  primary text
+  - slate        #6a6e79  secondary text
+  - trimble-blue #0063a3  brand / primary action
+  - connect      #00437b  deep brand / headers
+  - field        #f3f6f9  app field (cool gray-blue, not cream)
+  - signal-ok    #1e8a44 / signal-bad #da212c  status only
+
+  Type: Modus Open Sans (body + UI); same family for headings at heavier weight.
+  Tabular figures via font-variant-numeric where status/counts matter.
+  Scale: 12 / 14 / 16 / 20 / 28 (rem: 0.75 / 0.875 / 1 / 1.25 / 1.75)
+
+  Layout concept: sticky Trimble brand bar; centered work surface; checklist as
+  a sliding operations rail (not a chatbot toy).
+
+  ASCII — app shell:
+  +------------------------------------------------------+
+  | [logo] Control Sheet · ITGC              user | out  |
+  |-----------[ Overview | Matrix | Progress | Check ]---|
+  |                                                      |
+  |   dense status tables / owner columns                |
+  |                                      +-------------+ |
+  |                                      | Run checklist|
+  |                                      | transcript   |
+  |                                      +-------------+ |
+  +------------------------------------------------------+
+
+  ASCII — login (brand-first):
+  +------------------------------------------------------+
+  |########### Trimble blue field ########################|
+  |  [logo]                                              |
+  |  Control Sheet Dashboard                             |
+  |  Sign in with Trimble ID to open live ITGC controls. |
+  |  [ Sign in with Trimble ID ]                         |
+  |######################################################|
+  +------------------------------------------------------+
+
+  Principles:
+  1. Status denser than chrome — tables and OUTPUT beat decorative cards.
+  2. One bold audit action — Run Checklist is the accent; chrome stays quiet.
+  3. Agent reply is a readable work transcript, not chatbot candy.
+
+  Anti-defaults check: avoided purple gradients, cream+terracotta, broadsheet
+  rules, Inter/Roboto-only stacks, emoji ornamentation, glow piles.
+*/
+
+:root {
+  --ink: var(--modus-wc-color-base-content, #252a2e);
+  --slate: var(--modus-wc-color-gray-6, #6a6e79);
+  --trimble-blue: var(--modus-wc-color-trimble-blue, #0063a3);
+  --connect: var(--modus-wc-color-connect-blue, #00437b);
+  --field: #f3f6f9;
+  --signal-ok: var(--modus-wc-color-green, #1e8a44);
+  --signal-bad: var(--modus-wc-color-red, #da212c);
+
+  --primary-blue: var(--trimble-blue);
+  --primary-dark: var(--connect);
+  --primary-deep: var(--modus-wc-color-blue-dark, #0e416c);
+  --primary-light: var(--modus-wc-color-blue-light, #217cbb);
+  --accent-cyan: var(--modus-wc-color-highlight-blue, #019aeb);
+  --accent-sky: var(--accent-cyan);
+  --accent-glow: rgba(0, 99, 163, 0.12);
+  --accent-glow-strong: rgba(0, 99, 163, 0.22);
+
+  --bg-app: var(--field);
+  --bg-gradient: var(--field);
+  --bg-card: var(--modus-wc-color-base-100, #ffffff);
+  --bg-card-hover: var(--modus-wc-color-base-100, #ffffff);
+  --bg-subtle: var(--modus-wc-color-gray-01, #f5f5f8);
+  --bg-blue-tint: var(--modus-wc-color-blue-pale, #dcedf9);
+  --bg-blue-subtle: rgba(0, 99, 163, 0.05);
+  --bg-glass: rgba(255, 255, 255, 0.92);
+
+  --font-main: var(--modus-wc-font-family, "Open Sans", system-ui, sans-serif);
+  --font-heading: var(--font-main);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --text-primary: var(--ink);
+  --text-secondary: var(--modus-wc-color-gray-8, #464b52);
+  --text-muted: var(--slate);
+  --text-faint: var(--modus-wc-color-gray-4, #90939f);
+  --text-white: var(--modus-wc-color-white, #ffffff);
+  --text-blue: var(--trimble-blue);
+
+  --border-light: var(--modus-wc-color-gray-0, #e0e1e9);
+  --border-subtle: var(--modus-wc-color-gray-02, #e9eaf0);
+  --border-medium: var(--modus-wc-color-gray-1, #cbcdd6);
+  --border-blue: var(--modus-wc-color-blue-pale, #dcedf9);
+  --border-blue-dark: var(--modus-wc-color-blue-light, #217cbb);
+
+  --success: var(--signal-ok);
+  --success-bg: var(--modus-wc-color-green-pale, #e0eccf);
+  --success-border: var(--modus-wc-color-green-light, #4ea646);
+  --success-text: var(--modus-wc-color-green-dark, #006638);
+
+  --warning: var(--modus-wc-color-yellow-dark, #e49325);
+  --warning-bg: var(--modus-wc-color-yellow-pale, #fff5e4);
+  --warning-border: var(--modus-wc-color-yellow-light, #fec157);
+  --warning-text: var(--modus-wc-color-yellow-dark, #e49325);
+
+  --danger: var(--signal-bad);
+  --danger-bg: var(--modus-wc-color-red-pale, #fbd4d7);
+  --danger-border: var(--modus-wc-color-red-light, #e86363);
+  --danger-text: var(--modus-wc-color-red-dark, #ab1f26);
+
+  --info: var(--modus-wc-color-info-blue, #004f83);
+  --info-bg: var(--modus-wc-color-blue-pale, #dcedf9);
+  --info-border: var(--modus-wc-color-blue-light, #217cbb);
+  --info-text: var(--modus-wc-color-info-blue, #004f83);
+
+  --shadow-xs: 0 1px 2px rgba(14, 65, 108, 0.04);
+  --shadow-sm: 0 1px 3px rgba(14, 65, 108, 0.06), 0 1px 2px rgba(14, 65, 108, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(14, 65, 108, 0.07), 0 2px 4px -2px rgba(14, 65, 108, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(14, 65, 108, 0.08), 0 4px 6px -4px rgba(14, 65, 108, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(14, 65, 108, 0.1), 0 8px 10px -6px rgba(14, 65, 108, 0.04);
+  --shadow-blue: 0 12px 28px -8px rgba(0, 99, 163, 0.28);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-panel: 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-bounce: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 9999px;
+
+  --type-xs: 0.75rem;
+  --type-sm: 0.875rem;
+  --type-md: 1rem;
+  --type-lg: 1.25rem;
+  --type-xl: 1.75rem;
+
+  --focus-ring: 0 0 0 3px rgba(1, 154, 235, 0.45);
+}
