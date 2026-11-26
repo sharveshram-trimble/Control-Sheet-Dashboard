@@ -629,14 +629,27 @@
 }
 
 .status-critical-kicker {
-  display: block;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem 0.65rem;
   font-family: var(--font-main);
   font-size: var(--type-xs);
-  font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: var(--ink-secondary);
   margin-bottom: 0.7rem;
+}
+
+.status-critical-warn {
+  font-family: var(--font-main);
+  font-weight: 700;
+  color: var(--warn-text);
+}
+
+.status-critical-title {
+  font-family: var(--font-main);
+  font-weight: 700;
+  color: var(--ink-secondary);
 }
 
 .status-critical-list {

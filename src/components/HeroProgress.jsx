@@ -109,7 +109,10 @@ export default function HeroProgress({ stats, onSelectControl }) {
 
           {criticalPending.length > 0 ? (
             <div className="status-critical" aria-label="Controls that still need ticket numbers">
-              <p className="status-critical-kicker">Needs ticket</p>
+              <p className="status-critical-kicker">
+                <span className="status-critical-warn">Warning</span>
+                <span className="status-critical-title">Needs ticket</span>
+              </p>
               <ul className="status-critical-list">
                 {criticalPending.map((row) => (
                   <li key={row.id}>
