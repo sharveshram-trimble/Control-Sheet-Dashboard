@@ -1,89 +1,89 @@
 /*
-  ITGC Control Sheet — semantic tokens (from-scratch rebuild)
+  ITGC Control Sheet — counterpart to Recon Agents Workspace
 
-  Subject: Trimble ITGC control operations console
-  Audience: control owners + auditors
-  Job: find control → status → Run Checklist / mail / open sheet
-
-  Dark Trimble strip + blue-mist canvas + dense white work surface.
+  Shared Trimble Modus language:
+  Connect-blue masthead, blueprint canvas, ledger figures, Open Sans.
   Yellow reserved for Run Checklist CTA (+ warning).
 */
 
 :root {
-  /* Brand */
-  --brand-blue: #0063a3;
+  /* Brand (locked to recon-agents-app / Modus) */
+  --trimble-blue: #0063a3;
+  --connect-blue: #00437b;
+  --highlight-blue: #019aeb;
+  --blue-pale: #dcedf9;
+  --trimble-gray: #252a2e;
+
+  --brand-blue: var(--trimble-blue);
   --brand-blue-dark: #004f83;
-  --brand-blue-deeper: #0e416c;
+  --brand-blue-deeper: var(--connect-blue);
   --brand-blue-light: #217cbb;
-  --brand-blue-pale: #dcedf9;
-  --brand-blue-mist: #f0f7fc;
+  --brand-blue-pale: var(--blue-pale);
+  --brand-blue-mist: #f5f5f8;
   --brand-yellow: #fbad26;
   --brand-yellow-dark: #e49325;
   --brand-yellow-pale: #fff5e4;
 
-  /* Neutrals (steel) */
+  /* Neutrals */
   --ink: #171c1e;
   --ink-secondary: #353a40;
   --slate: #585c65;
   --muted: #6a6e79;
-  --line: #e0e1e9;
-  --line-strong: #cbcdd6;
+  --line: #d9dbe3;
+  --line-strong: #b7b9c3;
   --surface: #ffffff;
-  --surface-2: #f1f1f6;
-  --surface-3: #e9eaf0;
+  --surface-2: #e9eaf0;
+  --surface-3: #e3e4ea;
 
   /* Status */
   --ok: #1e8a44;
   --ok-bg: #e0eccf;
   --bad: #da212c;
   --bad-bg: #fbd4d7;
-  --warn: #e49325;
+  --warn: #fbad26;
   --warn-bg: #fff5e4;
-  --info: #004f83;
+  --warn-text: #8a5300;
+  --info: #00437b;
   --info-bg: #dcedf9;
-  --focus: #019aeb;
+  --focus: var(--highlight-blue);
 
-  /* Atmosphere */
-  --canvas:
-    radial-gradient(1200px 600px at 0% -10%, rgba(0, 99, 163, 0.1), transparent 55%),
-    radial-gradient(900px 500px at 100% 0%, rgba(33, 124, 187, 0.08), transparent 50%),
-    var(--brand-blue-mist);
-  --nav-glass: color-mix(in srgb, #0e416c 92%, transparent);
-  --panel-shadow: 0 1px 0 rgba(14, 65, 108, 0.06), 0 12px 32px -16px rgba(14, 65, 108, 0.18);
-  --accent-sheen: linear-gradient(135deg, #0063a3 0%, #217cbb 45%, #004f83 100%);
+  /* Atmosphere — blueprint counterpart (not radial mist soup) */
+  --blueprint-line: rgba(0, 99, 163, 0.07);
+  --canvas: var(--brand-blue-mist);
+  --nav-glass: var(--connect-blue);
+  --panel-shadow: 0 1px 2px rgba(23, 28, 30, 0.04), 0 1px 0 rgba(255, 255, 255, 0.6) inset;
+  --accent-sheen: linear-gradient(90deg, var(--highlight-blue), var(--trimble-blue) 60%, transparent);
   --cta-sheen: linear-gradient(135deg, #fbad26 0%, #e49325 100%);
+  --ledger-rule: linear-gradient(90deg, var(--highlight-blue), var(--trimble-blue) 60%, transparent);
 
   /* Type */
-  --font-main: var(--modus-wc-font-family, "Open Sans", system-ui, sans-serif);
+  --font-main: "Open Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-heading: var(--font-main);
-  --type-2xs: 0.6875rem; /* 11 */
-  --type-xs: 0.75rem; /* 12 */
-  --type-sm: 0.8125rem; /* 13 */
-  --type-md: 0.875rem; /* 14 */
-  --type-lg: 1rem; /* 16 */
-  --type-xl: 1.25rem; /* 20 */
-  --type-2xl: 1.75rem; /* 28 */
-  --type-3xl: 2.25rem; /* 36 */
+  --type-2xs: 0.6875rem;
+  --type-xs: 0.75rem;
+  --type-sm: 0.8125rem;
+  --type-md: 0.875rem;
+  --type-lg: 1rem;
+  --type-xl: 1.25rem;
+  --type-2xl: 1.5rem;
+  --type-3xl: 2rem;
 
-  /* Motion */
-  --ease-brand: cubic-bezier(0.2, 0, 0, 1);
+  /* Motion — match recon fade-up personality */
+  --ease-brand: cubic-bezier(0.2, 0.7, 0.2, 1);
   --t-micro: 120ms var(--ease-brand);
   --t-ui: 220ms var(--ease-brand);
   --t-panel: 320ms var(--ease-brand);
   --t-enter: 480ms var(--ease-brand);
   --stagger: 48ms;
-  --motion-y: 10px;
+  --motion-y: 8px;
 
-  /* Shape / elevation */
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --focus-ring: 0 0 0 3px rgba(1, 154, 235, 0.45);
+  /* Shape — recon radius 0.5rem family */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--focus);
 
-  /* Compat aliases used by residual Modus wiring */
-  --trimble-blue: var(--brand-blue);
-  --trimble-yellow: var(--brand-yellow);
-  --connect: var(--brand-blue-dark);
+  /* Compat aliases */
   --primary-blue: var(--brand-blue);
   --primary-dark: var(--brand-blue-dark);
   --primary-deep: var(--brand-blue-deeper);
@@ -107,7 +107,7 @@
   --success-border: #4ea646;
   --warning: var(--warn);
   --warning-bg: var(--warn-bg);
-  --warning-text: var(--brand-yellow-dark);
+  --warning-text: var(--warn-text);
   --warning-border: #fec157;
   --danger: var(--bad);
   --danger-bg: var(--bad-bg);

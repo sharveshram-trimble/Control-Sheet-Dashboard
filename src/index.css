@@ -1,4 +1,4 @@
-/* Slim reset — presentation lives in styles/dashboard-surfaces.css */
+/* Slim reset — presentation in styles/dashboard-surfaces.css */
 
 *,
 *::before,
@@ -20,11 +20,18 @@ body {
   font-family: var(--font-main);
   font-size: var(--type-md);
   color: var(--ink);
-  background: var(--canvas);
-  background-attachment: fixed;
+  background-color: var(--canvas);
+  /* Blueprint grid — counterpart to recon-agents-app */
+  background-image:
+    linear-gradient(var(--blueprint-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-position: -1px -1px;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.45;
+  line-height: 1.5;
   overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 img,
@@ -57,6 +64,24 @@ select {
   border: 0;
 }
 
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-rule {
+  background-image: var(--ledger-rule);
+}
+
+.lift {
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lift:hover {
+    transform: translateY(-1px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -67,22 +92,7 @@ select {
     scroll-behavior: auto !important;
   }
 
-  body {
-    background: var(--brand-blue-mist);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  body {
-    animation: canvas-breath 16s var(--ease-brand) infinite alternate;
-  }
-}
-
-@keyframes canvas-breath {
-  from {
-    background-position: 0% 0%, 100% 0%, 0 0;
-  }
-  to {
-    background-position: 2% 1%, 98% 2%, 0 0;
+  .lift:hover {
+    transform: none;
   }
 }

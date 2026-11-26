@@ -20,14 +20,16 @@ export default function LoginScreen({
         animate={enter.animate}
         transition={{ ...enter.transition, duration: 0.48 }}
       >
-        <img
-          className="tid-login-logo"
-          src="/trimble-logo.png"
-          alt="Trimble"
-          width={168}
-          height={52}
-        />
-        <p className="tid-login-kicker">ITGC operations</p>
+        <div className="tid-login-brand">
+          <span className="brand-emblem">
+            <img src="/brand/trimble-emblem.svg" alt="" width={28} height={27} />
+          </span>
+          <span className="tid-login-brand-copy">
+            <span className="brand-title">Trimble</span>
+            <span className="brand-kicker">Control Sheet · ITGC</span>
+          </span>
+        </div>
+        <p className="tid-login-kicker">Control operations</p>
         <h1>Control Sheet Dashboard</h1>
         <p className="tid-login-lead">
           Sign in with Trimble ID to view live control status, owners, and run
