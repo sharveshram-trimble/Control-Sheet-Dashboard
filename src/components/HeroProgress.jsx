@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
-import { ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
 
 function useCountUp(target, { duration = 480, enabled = true } = {}) {
   const [value, setValue] = useState(enabled ? 0 : target);
@@ -109,11 +108,8 @@ export default function HeroProgress({ stats, onSelectControl }) {
           </p>
 
           {criticalPending.length > 0 ? (
-            <div className="status-critical" aria-label="Priority missing tickets">
-              <p className="status-critical-kicker">
-                <ModusWcIcon name="warning" size="xs" decorative />
-                Needs ticket
-              </p>
+            <div className="status-critical" aria-label="Controls that still need ticket numbers">
+              <p className="status-critical-kicker">Needs ticket</p>
               <ul className="status-critical-list">
                 {criticalPending.map((row) => (
                   <li key={row.id}>
