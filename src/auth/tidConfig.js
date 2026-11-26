@@ -45,7 +45,12 @@ export function getTidAuthConfig() {
     import.meta.env.VITE_TID_LOGOUT_REDIRECT_URL,
     '/logout-callback'
   );
-  const scopes = parseScopes(import.meta.env.VITE_TID_SCOPES);
+  // Merged into SPA login. For Agents API (user token) include `agents`.
+  // Assist iframe also needs models/skills when VITE_AGENT_RUNTIME=assist.
+  const scopes = [
+    ...parseScopes(import.meta.env.VITE_TID_SCOPES),
+    ...parseScopes(import.meta.env.VITE_ASSIST_API_SCOPE),
+  ].filter((scope, index, all) => all.indexOf(scope) === index);
 
   const configured = Boolean(
     configurationEndpoint && clientId && scopes.length > 0

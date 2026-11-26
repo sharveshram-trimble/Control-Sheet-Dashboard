@@ -1,0 +1,6 @@
+# Copy to .npmrc in your project root. Never commit it.
+registry=https://registry.npmjs.org/
+
+# Trimble external packages (Assist SDK)
+@trimble-agentic-external-npm-local:registry=https://artifactory.trimble.tools/artifactory/api/npm/trimble-agentic-external-npm-local/
+//artifactory.trimble.tools/artifactory/api/npm/trimble-agentic-external-npm-local/:_authToken=YOUR_AUTH_TOKEN
