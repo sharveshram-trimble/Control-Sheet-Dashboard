@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
-import {
-  ModusWcBadge,
-  ModusWcTextInput,
-} from '@trimble-oss/moduswebcomponents-react';
+import { ModusWcTextInput } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
+import StatusChip from './StatusChip';
 
 export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const [ownerSearch, setOwnerSearch] = useState('');
@@ -104,13 +102,13 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
                     </div>
                   </div>
 
-                  <ModusWcBadge
-                    color={isFullyDone ? 'success' : hasStarted ? 'primary' : 'warning'}
-                    size="sm"
-                    variant="filled"
-                  >
-                    {isFullyDone ? 'Complete' : `${owner.completionPercentage}%`}
-                  </ModusWcBadge>
+                  <StatusChip
+                    tone={isFullyDone ? 'ok' : hasStarted ? 'info' : 'warn'}
+                    label={
+                      isFullyDone ? 'Complete' : `${owner.completionPercentage}%`
+                    }
+                    compact
+                  />
                 </div>
 
                 <div>
@@ -133,14 +131,12 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
 
                 <div className="owner-controls-chips">
                   {owner.controls.map((c) => (
-                    <ModusWcBadge
+                    <StatusChip
                       key={c.id}
-                      color={c.isCompleted ? 'success' : 'warning'}
-                      size="sm"
-                      variant="outlined"
-                    >
-                      {c['Control ID']}: {c['TICKET NUMBER'] || 'Missing'}
-                    </ModusWcBadge>
+                      tone={c.isCompleted ? 'ok' : 'warn'}
+                      label={`${c['Control ID']}: ${c['TICKET NUMBER'] || 'Missing'}`}
+                      compact
+                    />
                   ))}
                 </div>
               </div>

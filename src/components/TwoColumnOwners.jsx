@@ -384,14 +384,11 @@ export default function TwoColumnOwners({
                               Run Checklist
                             </ModusWcButton>
                           ) : (
-                            <ModusWcBadge
-                              color="warning"
-                              size="sm"
-                              variant="filled"
-                              aria-label={`Checklist is missing for ${control['Control ID']}`}
-                            >
-                              Checklist is missing
-                            </ModusWcBadge>
+                            <StatusChip
+                              tone="warn"
+                              label="No checklist"
+                              compact
+                            />
                           )}
                         </div>
                       </div>
@@ -507,7 +504,7 @@ export default function TwoColumnOwners({
                             ({control['Application Name']})
                           </span>
                         </span>
-                        <span className="ticket-pill missing">No Ticket</span>
+                        <StatusChip tone="warn" label="No ticket" compact />
                       </button>
                     ))}
                   </div>

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
-  ModusWcBadge,
   ModusWcButton,
   ModusWcIcon,
   ModusWcSelect,
@@ -25,6 +24,7 @@ import {
   staggerContainer,
   staggerItem,
 } from '../motion/presets';
+import StatusChip from './StatusChip';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -348,13 +348,11 @@ export default function ChecklistView({
                         </p>
                       </div>
                       <div className="checklist-run-status">
-                        <ModusWcBadge
-                          color="primary"
-                          size="sm"
-                          variant="filled"
-                        >
-                          {item['TICKET NUMBER'] || 'Ticketed'}
-                        </ModusWcBadge>
+                        <StatusChip
+                          tone="info"
+                          label={item['TICKET NUMBER'] || 'Ticketed'}
+                          compact
+                        />
                         <OutputChip status={readiness.output} />
                       </div>
                     </div>

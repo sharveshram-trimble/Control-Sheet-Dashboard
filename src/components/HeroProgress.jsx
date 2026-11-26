@@ -112,7 +112,7 @@ export default function HeroProgress({ stats, onSelectControl }) {
             <div className="status-critical" aria-label="Priority missing tickets">
               <p className="status-critical-kicker">
                 <ModusWcIcon name="warning" size="xs" decorative />
-                Priority missing tickets
+                Needs ticket
               </p>
               <ul className="status-critical-list">
                 {criticalPending.map((row) => (
