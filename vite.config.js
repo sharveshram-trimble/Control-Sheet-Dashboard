@@ -606,7 +606,9 @@ function n8nLiveApiPlugin() {
               webhookProduction: `https://${WEBHOOK_HOST}${WEBHOOK_PATH}`,
               webhookTest: `https://${WEBHOOK_HOST}${WEBHOOK_TEST_PATH}`,
               mailWebhook: MAIL_WEBHOOK_PATH
-                ? `https://${WEBHOOK_HOST}${MAIL_WEBHOOK_PATH}`
+                ? /^https?:\/\//i.test(MAIL_WEBHOOK_PATH)
+                  ? MAIL_WEBHOOK_PATH
+                  : `https://${WEBHOOK_HOST}${MAIL_WEBHOOK_PATH}`
                 : null,
               tidConfigured: Boolean(TID_CLIENT_ID && TID_CLIENT_SECRET),
               staticWebhookAuth: Boolean(WEBHOOK_AUTH_STATIC),

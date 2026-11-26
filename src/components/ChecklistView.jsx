@@ -163,10 +163,10 @@ export default function ChecklistView({
           <div className="checklist-header-copy">
             <h2>Checklist</h2>
             <p>
-              Completed controls from the live sheet. Run Checklist opens Trimble
-              Assist with the CHECKLIST name and the selected quarter target
-              sheet. Output shows success only when every checklist checkpoint
-              passed; otherwise failed.
+              Completed controls from the live sheet. Run Checklist calls the
+              Agents API with your Trimble ID user token, using the CHECKLIST
+              name and selected quarter Drive folder. Output shows success only
+              when every checklist checkpoint passed; otherwise failed.
             </p>
           </div>
           <div className="table-filters-group checklist-header-actions">

@@ -149,9 +149,11 @@ export default function AssistPanel({
   const pageIsHttps =
     typeof window !== 'undefined' && window.location.protocol === 'https:';
 
-  controlRef.current = control;
-  quarterRef.current = quarter;
-  onResultRef.current = onChecklistResult;
+  useEffect(() => {
+    controlRef.current = control;
+    quarterRef.current = quarter;
+    onResultRef.current = onChecklistResult;
+  }, [control, quarter, onChecklistResult]);
 
   const reauthToAssist = useCallback(async () => {
     latestTokenRef.current = '';
@@ -418,8 +420,10 @@ export default function AssistPanel({
     }
   }, [resolveAccessToken, chatUrl]);
 
-  provideTokenRef.current = provideToken;
-  handleUnauthorizedRef.current = handleUnauthorized;
+  useEffect(() => {
+    provideTokenRef.current = provideToken;
+    handleUnauthorizedRef.current = handleUnauthorized;
+  }, [provideToken, handleUnauthorized]);
 
   const buildOnBeforeRun = useCallback(() => {
     const current = controlRef.current;
@@ -453,7 +457,9 @@ export default function AssistPanel({
     };
   }, [publishResult]);
 
-  buildOnBeforeRunRef.current = buildOnBeforeRun;
+  useEffect(() => {
+    buildOnBeforeRunRef.current = buildOnBeforeRun;
+  }, [buildOnBeforeRun]);
 
   // Wire iframe ↔ host once the iframe exists. Keep listener while everOpened.
   // Callbacks are read from refs so changing control/quarter does NOT tear down
