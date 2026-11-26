@@ -1,188 +1,193 @@
 import React, { useEffect, useRef } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  ModusWcAlert,
   ModusWcButton,
+  ModusWcCard,
   ModusWcIcon,
   ModusWcModal,
+  ModusWcTypography,
 } from '@trimble-oss/moduswebcomponents-react';
-import { modalContent } from '../motion/presets';
+import { getDialog, showDialogWhenReady, useDialogClose } from '../utils/modalDialog';
 import StatusChip from './StatusChip';
+import '../styles/surface-helpers.css';
 
 const MODAL_ID = 'control-detail-modal';
+const TITLE_ID = 'control-detail-modal-title';
+const QUARTERS = ['Q1', 'Q2', 'Q3', 'Q4'];
+
+/** Label + value tile used for the ticket, owner and frequency facts. */
+function FactTile({ label, value, icon }) {
+  return (
+    <div className="min-w-0">
+      <ModusWcCard bordered padding="compact" customClass="h-full">
+        <div className="flex min-w-0 items-start gap-2">
+          {icon ? <ModusWcIcon name={icon} version="2.0" size="md" decorative /> : null}
+          <div className="flex min-w-0 flex-col gap-1">
+            <ModusWcTypography hierarchy="p" size="sm" customClass="surface-muted !m-0" label={label} />
+            <ModusWcTypography
+              hierarchy="p"
+              size="md"
+              weight="semibold"
+              customClass="!m-0 break-words"
+              label={value}
+            />
+          </div>
+        </div>
+      </ModusWcCard>
+    </div>
+  );
+}
 
 export default function DetailModal({ control, onClose }) {
-  const reduceMotion = useReducedMotion();
   const returnFocusRef = useRef(null);
-  const contentMotion = modalContent(reduceMotion);
 
+  // Open from the prop (App owns `selectedControl`); the native <dialog> closes itself on Escape.
   useEffect(() => {
-    const dialog = document.getElementById(MODAL_ID);
-    if (!dialog) return undefined;
-
-    const handleClose = () => {
-      onClose?.();
-      const el = returnFocusRef.current;
-      if (el && typeof el.focus === 'function') {
-        window.setTimeout(() => el.focus(), 0);
-      }
-    };
-    dialog.addEventListener('close', handleClose);
-
-    if (control && typeof dialog.showModal === 'function' && !dialog.open) {
-      returnFocusRef.current = document.activeElement;
-      dialog.showModal();
-      dialog.classList.add('control-detail-modal--enter');
+    if (!control) {
+      const dialog = getDialog(MODAL_ID);
+      if (dialog?.open) dialog.close();
+      return undefined;
     }
+    const dialog = getDialog(MODAL_ID);
+    if (!dialog?.open) returnFocusRef.current = document.activeElement;
+    return showDialogWhenReady(MODAL_ID);
+  }, [control]);
 
-    if (!control && dialog.open) {
-      dialog.classList.remove('control-detail-modal--enter');
-      dialog.close();
-    }
-
-    return () => {
-      dialog.removeEventListener('close', handleClose);
-    };
-  }, [control, onClose]);
+  // Every dismiss path (×, Escape, backdrop, Close) lands here: sync App state, then return focus.
+  useDialogClose(MODAL_ID, () => {
+    onClose?.();
+    const el = returnFocusRef.current;
+    window.setTimeout(() => {
+      if (el && typeof el.focus === 'function' && el.isConnected) el.focus();
+    }, 0);
+  });
 
   const closeDialog = () => {
-    document.getElementById(MODAL_ID)?.close();
+    getDialog(MODAL_ID)?.close();
   };
 
-  const hasAudit =
-    Boolean(control?.['Audit Issue from FY 25']) &&
-    control?.['Audit Issue from FY 25'] !== 'N/A';
+  const auditIssue = control?.['Audit Issue from FY 25'];
+  const hasAudit = Boolean(auditIssue) && auditIssue !== 'N/A';
+  const kicker = [control?.['Application Name'], control?.['Sub-Process']]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <ModusWcModal
       modalId={MODAL_ID}
+      aria-labelledby={TITLE_ID}
       backdrop="default"
       position="center"
       showClose
-      aria-label={
-        control
-          ? `Control details ${control['Control ID'] || ''}`
-          : 'Control details'
-      }
-      customClass="control-detail-modal"
     >
-      <div slot="header" className="detail-modal-header">
-        <AnimatePresence mode="wait">
+      <div slot="header" className="flex min-w-0 flex-wrap items-center gap-3">
+        <div className="flex min-w-0 flex-col">
+          <ModusWcTypography
+            hierarchy="p"
+            size="sm"
+            customClass="surface-muted !m-0"
+            label={kicker || '\u00a0'}
+          />
+          <ModusWcTypography
+            id={TITLE_ID}
+            hierarchy="h2"
+            size="lg"
+            weight="semibold"
+            customClass="!m-0"
+            label={control?.['Control ID'] || 'Control details'}
+          />
+        </div>
+        <div>
           {control ? (
-            <motion.div
-              key={control.id || control['Control ID'] || 'detail'}
-              className="detail-modal-header-main"
-              {...contentMotion}
-            >
-              <div>
-                <p className="detail-modal-kicker">
-                  {control?.['Application Name'] || '—'}
-                  {control?.['Sub-Process']
-                    ? ` · ${control['Sub-Process']}`
-                    : ''}
-                </p>
-                <strong className="detail-modal-id">
-                  {control?.['Control ID'] || 'Control'}
-                </strong>
-              </div>
-              <StatusChip
-                tone={control?.isCompleted ? 'ok' : 'warn'}
-                label={control?.isCompleted ? 'Ticketed' : 'Missing ticket'}
-              />
-            </motion.div>
+            <StatusChip
+              tone={control.isCompleted ? 'ok' : 'warn'}
+              label={control.isCompleted ? 'Ticketed' : 'Missing ticket'}
+            />
           ) : null}
-        </AnimatePresence>
+        </div>
       </div>
 
-      <div slot="content" className="detail-modal-body">
-        <AnimatePresence mode="wait">
-          {control ? (
-            <motion.div
-              key={`body-${control.id || control['Control ID']}`}
-              {...contentMotion}
-            >
-              <div
-                className={`detail-ticket-box ${control?.isCompleted ? 'done' : 'pending'}`}
-              >
-                <div className="detail-ticket-info">
-                  <ModusWcIcon name="ticket" size="md" decorative />
-                  <div>
-                    <span className="detail-field-label">Ticket number</span>
-                    <div className="detail-ticket-value">
-                      {control?.['TICKET NUMBER'] || 'Not on control sheet'}
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <div slot="content" className="flex min-w-0 flex-col gap-4">
+        {control ? (
+          <>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <FactTile
+                icon="ticket"
+                label="Ticket number"
+                value={control['TICKET NUMBER'] || 'Not on control sheet'}
+              />
+              <FactTile label="Control owner" value={control['Control Owner'] || '—'} />
+              <FactTile
+                label="Frequency and type"
+                value={`${control['Control Frequency'] || 'N/A'} · ${control['Control Type'] || 'N/A'}`}
+              />
+            </div>
 
-              <dl className="detail-meta-grid">
-                <div className="detail-meta-tile">
-                  <dt className="detail-field-label">Control owner</dt>
-                  <dd className="detail-meta-value">
-                    {control?.['Control Owner'] || '—'}
-                  </dd>
-                </div>
-                <div className="detail-meta-tile">
-                  <dt className="detail-field-label">Frequency / type</dt>
-                  <dd className="detail-meta-value">
-                    {control?.['Control Frequency'] || 'N/A'} ·{' '}
-                    {control?.['Control Type'] || 'N/A'}
-                  </dd>
-                </div>
-              </dl>
+            <div className="flex min-w-0 flex-col gap-1">
+              <ModusWcTypography
+                hierarchy="h3"
+                size="md"
+                weight="semibold"
+                customClass="!m-0"
+                label="Control title"
+              />
+              <ModusWcTypography
+                hierarchy="p"
+                size="md"
+                customClass="!m-0"
+                label={control['Control Title'] || '—'}
+              />
+            </div>
 
-              <div className="detail-block">
-                <h4 className="detail-field-label">Control title</h4>
-                <div className="detail-title-box">
-                  {control?.['Control Title'] || '—'}
-                </div>
-              </div>
+            <div>
+              {hasAudit ? (
+                <ModusWcAlert
+                  variant="error"
+                  role="status"
+                  alertTitle="Audit issue (FY 25)"
+                  alertDescription={auditIssue}
+                />
+              ) : null}
+            </div>
 
-              <div className="detail-block" hidden={!hasAudit}>
-                <h4 className="detail-field-label detail-danger-label">
-                  Audit issue (FY 25)
-                </h4>
-                <div className="detail-audit-box">
-                  {control?.['Audit Issue from FY 25']}
-                </div>
-              </div>
-
-              <div className="detail-block">
-                <h4 className="detail-field-label">Evidence folders</h4>
-                <div className="detail-drive-grid">
-                  {['Q1', 'Q2', 'Q3', 'Q4'].map((q) => {
-                    const link = control?.[`Drive Link ${q}`];
-                    return (
-                      <div key={q} className="detail-drive-cell">
+            <div className="flex min-w-0 flex-col gap-2">
+              <ModusWcTypography
+                hierarchy="h3"
+                size="md"
+                weight="semibold"
+                customClass="!m-0"
+                label="Evidence folders"
+              />
+              <ul className="surface-list grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {QUARTERS.map((q) => {
+                  const link = control[`Drive Link ${q}`];
+                  return (
+                    <li key={q} className="min-w-0">
+                      {link ? (
                         <a
-                          href={link || undefined}
+                          href={link}
                           target="_blank"
-                          rel="noreferrer"
-                          className="detail-drive-link"
-                          hidden={!link}
+                          rel="noopener noreferrer"
+                          className="surface-link"
+                          aria-label={`Open ${q} evidence folder (opens in a new tab)`}
                         >
                           <span>{q}</span>
-                          <ModusWcIcon name="launch" size="xs" decorative />
+                          <ModusWcIcon name="arrow-square-out" version="2.0" size="xs" decorative />
                         </a>
-                        <div className="detail-drive-empty" hidden={Boolean(link)}>
-                          {q} — none
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
+                      ) : (
+                        <span className="surface-muted">{q} — none</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </>
+        ) : null}
       </div>
 
-      <div slot="footer" className="detail-modal-footer">
-        <ModusWcButton
-          color="tertiary"
-          variant="outlined"
-          size="sm"
-          onButtonClick={closeDialog}
-        >
+      <div slot="footer" className="flex justify-end gap-2">
+        <ModusWcButton color="tertiary" variant="outlined" size="sm" onButtonClick={closeDialog}>
           Close
         </ModusWcButton>
       </div>

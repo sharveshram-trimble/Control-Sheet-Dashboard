@@ -1,24 +1,32 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import {
+  ModusWcAvatar,
   ModusWcBadge,
   ModusWcButton,
+  ModusWcCard,
+  ModusWcEmptyState,
   ModusWcIcon,
   ModusWcModal,
   ModusWcSelect,
   ModusWcTextInput,
   ModusWcTextarea,
+  ModusWcTypography,
 } from '@trimble-oss/moduswebcomponents-react';
 import { hasChecklistSheet } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
+import { getDialog, useDialogClose } from '../utils/modalDialog';
 import { staggerContainer, staggerItem } from '../motion/presets';
 import StatusChip from './StatusChip';
+import '../styles/surface-helpers.css';
+import '../styles/owners.css';
 
 const DRAFT_MAIL_MODAL_ID = 'draft-incomplete-mail-modal';
+const DRAFT_MAIL_TITLE_ID = 'draft-incomplete-mail-title';
 
 const MAIL_TYPE_OPTIONS = [
   { label: 'Reminder mail', value: 'reminder' },
-  { label: 'Follow up mail', value: 'follow_up' },
+  { label: 'Follow-up mail', value: 'follow_up' },
   { label: 'Draft your own mail', value: 'draft' },
 ];
 
@@ -140,8 +148,114 @@ function splitOwnerViews(ownerStats) {
   return { completed, incomplete };
 }
 
-function getDraftDialog() {
-  return document.getElementById(DRAFT_MAIL_MODAL_ID);
+function plural(count, one, many) {
+  return count === 1 ? one : many;
+}
+
+/** Owner name + status badge + summary line, shared by both columns. */
+function OwnerTitle({ owner, tone, badgeLabel }) {
+  return (
+    <div slot="title" className="flex w-full min-w-0 items-center justify-between gap-3">
+      <div className="flex min-w-0 items-center gap-2">
+        {/* modus-wc-avatar takes the first letter of each word, so pass the full name. */}
+        <ModusWcAvatar initials={owner.name} size="sm" aria-hidden="true" />
+        <ModusWcTypography hierarchy="h4" size="md" weight="semibold" label={owner.name} />
+      </div>
+      <StatusChip tone={tone} label={badgeLabel} compact />
+    </div>
+  );
+}
+
+/** One control: opens the detail modal; trailing cluster holds ticket / checklist state. */
+function ControlRow({ control, onSelectControl, trailing }) {
+  const id = control['Control ID'];
+  return (
+    <li className="owner-control-row flex flex-wrap items-center justify-between gap-2 py-1">
+      <ModusWcButton
+        variant="borderless"
+        color="tertiary"
+        size="sm"
+        aria-label={`View details for ${id}`}
+        onButtonClick={() => onSelectControl?.(control)}
+      >
+        <span className="font-semibold">{id}</span>
+        <span className="surface-muted">({control['Application Name']})</span>
+      </ModusWcButton>
+      <div className="flex flex-wrap items-center gap-2">{trailing}</div>
+    </li>
+  );
+}
+
+/** Column card: title, search toolbar, list, and a stable empty state (toggled, never swapped). */
+function OwnerColumn({
+  icon,
+  title,
+  description,
+  count,
+  countNoun,
+  searchLabel,
+  searchPlaceholder,
+  search,
+  onSearch,
+  emptyState,
+  isEmpty,
+  listVariants,
+  children,
+}) {
+  return (
+    <div className="h-full min-w-0">
+      <ModusWcCard bordered padding="compact" customClass="h-full">
+        <div slot="title" className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <ModusWcIcon name={icon} version="2.0" decorative />
+            <ModusWcTypography hierarchy="h3" size="lg" weight="semibold" label={title} />
+          </div>
+          <ModusWcBadge color="default" size="sm">
+            <span>
+              {count}
+              <span className="sr-only"> {countNoun}</span>
+            </span>
+          </ModusWcBadge>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <ModusWcTypography hierarchy="p" size="sm" customClass="surface-muted" label={description} />
+
+          <ModusWcTextInput
+            size="sm"
+            bordered
+            includeSearch
+            includeClear
+            type="search"
+            placeholder={searchPlaceholder}
+            value={search}
+            aria-label={searchLabel}
+            onInputChange={(e) => onSearch(readInputString(e))}
+          />
+
+          <div className={isEmpty ? '' : 'surface-hidden'}>
+            <ModusWcEmptyState
+              variant="compact"
+              illustration={emptyState.illustration}
+              heading={emptyState.heading}
+              subtitle={emptyState.subtitle}
+              actionLabel={emptyState.actionLabel}
+              onActionClick={emptyState.onAction}
+            />
+          </div>
+
+          <motion.ul
+            className={isEmpty ? 'surface-hidden' : 'surface-list flex flex-col gap-2'}
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
+            {children}
+          </motion.ul>
+        </div>
+      </ModusWcCard>
+    </div>
+  );
 }
 
 export default function TwoColumnOwners({
@@ -164,17 +278,12 @@ export default function TwoColumnOwners({
     [ownerStats]
   );
 
-  useEffect(() => {
-    const dialog = getDraftDialog();
-    if (!dialog) return undefined;
-    const onClose = () => {
-      setDraftOwner(null);
-      setDraftSubject('');
-      setDraftBody('');
-    };
-    dialog.addEventListener('close', onClose);
-    return () => dialog.removeEventListener('close', onClose);
-  }, []);
+  // Fires for every dismiss path (close button, Escape, backdrop, Cancel, successful send).
+  useDialogClose(DRAFT_MAIL_MODAL_ID, () => {
+    setDraftOwner(null);
+    setDraftSubject('');
+    setDraftBody('');
+  });
 
   const getMailType = (ownerName) => mailTypeByOwner[ownerName] || 'reminder';
 
@@ -211,11 +320,11 @@ export default function TwoColumnOwners({
         `Please see the incomplete controls listed below.\n\n` +
         `Thanks,\nSharvesh Ram`
     );
-    getDraftDialog()?.showModal();
+    getDialog(DRAFT_MAIL_MODAL_ID)?.showModal();
   };
 
   const closeDraftModal = () => {
-    getDraftDialog()?.close();
+    getDialog(DRAFT_MAIL_MODAL_ID)?.close();
   };
 
   const handleEmailClick = async (owner) => {
@@ -248,294 +357,231 @@ export default function TwoColumnOwners({
     closeDraftModal();
   };
 
+  const completedQuery = completedSearch.trim().toLowerCase();
   const filteredCompleted = completedOwners.filter(
     (o) =>
-      o.name.toLowerCase().includes(completedSearch.toLowerCase()) ||
-      o.apps.some((a) => a.toLowerCase().includes(completedSearch.toLowerCase())) ||
-      o.controls.some((c) =>
-        c['TICKET NUMBER']?.toLowerCase().includes(completedSearch.toLowerCase())
-      )
+      o.name.toLowerCase().includes(completedQuery) ||
+      o.apps.some((a) => a.toLowerCase().includes(completedQuery)) ||
+      o.controls.some((c) => c['TICKET NUMBER']?.toLowerCase().includes(completedQuery))
   );
 
+  const pendingQuery = pendingSearch.trim().toLowerCase();
   const filteredPending = pendingOwners.filter(
     (o) =>
-      o.name.toLowerCase().includes(pendingSearch.toLowerCase()) ||
-      o.apps.some((a) => a.toLowerCase().includes(pendingSearch.toLowerCase())) ||
-      o.controls.some((c) =>
-        c['Control ID']?.toLowerCase().includes(pendingSearch.toLowerCase())
-      )
+      o.name.toLowerCase().includes(pendingQuery) ||
+      o.apps.some((a) => a.toLowerCase().includes(pendingQuery)) ||
+      o.controls.some((c) => c['Control ID']?.toLowerCase().includes(pendingQuery))
   );
 
   const reduceMotion = useReducedMotion();
   const listVariants = staggerContainer(reduceMotion);
-
-  const getInitials = (name) => {
-    if (!name) return '??';
-    const parts = name.split(' ');
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
+  const isSendingDraft = Boolean(draftOwner) && mailingOwner === draftOwner?.name;
 
   return (
-    <section className="owner-breakdown-section">
-      <div className="section-header-row">
-        <div className="section-header-title">
-          <h2>Owners by ticket status</h2>
-          <ModusWcBadge color="default" size="sm" variant="outlined">
-            From control sheet ticket verification
-          </ModusWcBadge>
-        </div>
+    <section className="flex min-w-0 flex-col gap-3" aria-labelledby="owners-heading">
+      <div className="flex min-w-0 flex-wrap items-center gap-3">
+        <ModusWcTypography
+          id="owners-heading"
+          hierarchy="h2"
+          size="xl"
+          weight="semibold"
+          label="Owners by ticket status"
+        />
+        <ModusWcBadge color="default" size="sm" variant="outlined">
+          <span>From control sheet ticket verification</span>
+        </ModusWcBadge>
       </div>
 
-      <div className="two-column-owners-grid">
-        <div className="owner-column-card completed-column">
-          <div className="column-header completed-head">
-            <div className="column-header-title">
-              <div className="column-header-text">
-                <h3>Ticketed owners</h3>
-                <p>Controls with verified ticket numbers. Incomplete items stay on the right.</p>
-              </div>
-            </div>
-            <span className="column-count completed" aria-label={`${completedOwners.length} ticketed owners`}>
-              {completedOwners.length}
-            </span>
-          </div>
-
-          <div className="column-search-wrap">
-            <ModusWcTextInput
-              size="sm"
-              bordered
-              includeSearch
-              includeClear
-              type="search"
-              placeholder="Search completed owners, apps, or tickets..."
-              value={completedSearch}
-              aria-label="Search completed owners"
-              onInputChange={(e) => setCompletedSearch(readInputString(e))}
-            />
-          </div>
-
-          <motion.div
-            className="owner-cards-list"
-            variants={listVariants}
-            initial="hidden"
-            animate="show"
-          >
-            {filteredCompleted.length === 0 ? (
-              <div className="owner-empty-state">
-                <ModusWcIcon name="check_circle" size="lg" decorative />
-                <p>No completed owners match search</p>
-              </div>
-            ) : (
-              filteredCompleted.map((owner, index) => (
-                <motion.div
-                  key={`completed-${owner.name}`}
-                  className="owner-item-card is-completed"
-                  variants={staggerItem(reduceMotion, index)}
-                >
-                  <div className="owner-card-top">
-                    <div className="owner-profile">
-                      <div className="owner-avatar completed">
-                        {getInitials(owner.name)}
-                      </div>
-                      <div className="owner-details">
-                        <h4>{owner.name}</h4>
-                        <div className="owner-app-meta">
-                          {owner.apps.join(', ')} • {owner.count} Control
-                          {owner.count > 1 ? 's' : ''} Completed
-                        </div>
-                      </div>
-                    </div>
-
-                    <StatusChip tone="ok" label="Ticketed" />
-                  </div>
-
-                  <div className="owner-controls-chips">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <OwnerColumn
+          icon="check-circle"
+          title="Ticketed owners"
+          description="Controls with verified ticket numbers. Incomplete items stay on the right."
+          count={completedOwners.length}
+          countNoun="ticketed owners"
+          searchLabel="Search ticketed owners"
+          searchPlaceholder="Search owners, apps or tickets"
+          search={completedSearch}
+          onSearch={setCompletedSearch}
+          isEmpty={filteredCompleted.length === 0}
+          listVariants={listVariants}
+          emptyState={{
+            illustration: 'selection_plus',
+            heading: completedQuery ? 'No owners found' : 'No ticketed owners yet',
+            subtitle: completedQuery
+              ? 'Try a different owner, app or ticket number.'
+              : 'Owners appear here once their controls have verified tickets.',
+            actionLabel: completedQuery ? 'Clear search' : undefined,
+            onAction: () => setCompletedSearch(''),
+          }}
+        >
+          {filteredCompleted.map((owner, index) => (
+            <motion.li
+              key={`completed-${owner.name}`}
+              variants={staggerItem(reduceMotion, index)}
+            >
+              <ModusWcCard
+                bordered={false}
+                padding="compact"
+                customClass="owner-item owner-item--ticketed"
+              >
+                <OwnerTitle owner={owner} tone="ok" badgeLabel="Ticketed" />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <ModusWcTypography
+                    hierarchy="p"
+                    size="sm"
+                    customClass="surface-muted"
+                    label={`${owner.apps.join(', ')} · ${owner.count} ${plural(owner.count, 'control', 'controls')} completed`}
+                  />
+                  <ul className="surface-list flex flex-col">
                     {owner.controls.map((control) => (
-                      <div
+                      <ControlRow
                         key={control.id}
-                        className="control-chip done"
-                      >
-                        <button
-                          type="button"
-                          className="chip-text chip-text-button"
-                          onClick={() => onSelectControl?.(control)}
-                          title="View control details"
-                        >
-                          <span className="chip-id">{control['Control ID']}</span>
-                          <span className="chip-app">
-                            ({control['Application Name']})
-                          </span>
-                        </button>
-                        <div className="chip-actions">
-                          <span className="ticket-pill">
-                            {control['TICKET NUMBER']}
-                          </span>
-                          {hasChecklistSheet(control) ? (
-                            <ModusWcButton
-                              variant="filled"
-                              color="primary"
-                              size="xs"
-                              customClass="run-checklist-btn"
-                              aria-label={`Run checklist for ${control['Control ID']}`}
-                              onButtonClick={() => onRunChecklist?.(control)}
-                            >
-                              <ModusWcIcon name="check_circle" size="xs" decorative />
-                              Run Checklist
-                            </ModusWcButton>
-                          ) : (
-                            <StatusChip
-                              tone="idle"
-                              label="No checklist"
-                              compact
-                            />
-                          )}
-                        </div>
-                      </div>
+                        control={control}
+                        onSelectControl={onSelectControl}
+                        trailing={
+                          <>
+                            <ModusWcBadge color="default" size="sm" variant="outlined">
+                              <span>{control['TICKET NUMBER']}</span>
+                            </ModusWcBadge>
+                            {hasChecklistSheet(control) ? (
+                              <ModusWcButton
+                                variant="outlined"
+                                color="primary"
+                                size="xs"
+                                aria-label={`Run checklist for ${control['Control ID']}`}
+                                onButtonClick={() => onRunChecklist?.(control)}
+                              >
+                                <ModusWcIcon name="clipboard-check" version="2.0" size="xs" decorative />
+                                <span>Run checklist</span>
+                              </ModusWcButton>
+                            ) : (
+                              <StatusChip tone="idle" label="No checklist" compact />
+                            )}
+                          </>
+                        }
+                      />
                     ))}
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
-        </div>
+                  </ul>
+                </div>
+              </ModusWcCard>
+            </motion.li>
+          ))}
+        </OwnerColumn>
 
-        <div className="owner-column-card pending-column">
-          <div className="column-header pending-head">
-            <div className="column-header-title">
-              <div className="column-header-text">
-                <h3>Missing tickets</h3>
-                <p>Controls without ticket numbers. Ticketed controls stay on the left.</p>
-              </div>
-            </div>
-            <span className="column-count pending" aria-label={`${pendingOwners.length} owners missing tickets`}>
-              {pendingOwners.length}
-            </span>
-          </div>
+        <OwnerColumn
+          icon="warning-circle"
+          title="Missing tickets"
+          description="Controls without ticket numbers. Ticketed controls stay on the left."
+          count={pendingOwners.length}
+          countNoun="owners missing tickets"
+          searchLabel="Search owners missing tickets"
+          searchPlaceholder="Search owners or apps"
+          search={pendingSearch}
+          onSearch={setPendingSearch}
+          isEmpty={filteredPending.length === 0}
+          listVariants={listVariants}
+          emptyState={{
+            illustration: 'symbol_info',
+            heading: pendingQuery ? 'No owners found' : 'All owners have tickets',
+            subtitle: pendingQuery
+              ? 'Try a different owner or app name.'
+              : 'Every control has a verified ticket number.',
+            actionLabel: pendingQuery ? 'Clear search' : undefined,
+            onAction: () => setPendingSearch(''),
+          }}
+        >
+          {filteredPending.map((owner, index) => (
+            <motion.li
+              key={`incomplete-${owner.name}`}
+              variants={staggerItem(reduceMotion, index)}
+            >
+              <ModusWcCard
+                bordered={false}
+                padding="compact"
+                customClass="owner-item owner-item--missing"
+              >
+                <OwnerTitle owner={owner} tone="warn" badgeLabel="Missing ticket" />
+                <div className="flex min-w-0 flex-col gap-2">
+                  <ModusWcTypography
+                    hierarchy="p"
+                    size="sm"
+                    customClass="surface-muted"
+                    label={`${owner.apps.join(', ')} · ${owner.count} incomplete ${plural(owner.count, 'ticket', 'tickets')}`}
+                  />
 
-          <div className="column-search-wrap">
-            <ModusWcTextInput
-              size="sm"
-              bordered
-              includeSearch
-              includeClear
-              type="search"
-              placeholder="Search incomplete owners or application names..."
-              value={pendingSearch}
-              aria-label="Search incomplete owners"
-              onInputChange={(e) => setPendingSearch(readInputString(e))}
-            />
-          </div>
-
-          <motion.div
-            className="owner-cards-list"
-            variants={listVariants}
-            initial="hidden"
-            animate="show"
-          >
-            {filteredPending.length === 0 ? (
-              <div className="owner-empty-state success">
-                <ModusWcIcon name="check_circle" size="lg" decorative />
-                <p>All owners have verified tickets!</p>
-              </div>
-            ) : (
-              filteredPending.map((owner, index) => (
-                <motion.div
-                  key={`incomplete-${owner.name}`}
-                  className="owner-item-card is-pending"
-                  variants={staggerItem(reduceMotion, index)}
-                >
-                  <div className="owner-card-top">
-                    <div className="owner-profile">
-                      <div className="owner-avatar pending">
-                        {getInitials(owner.name)}
-                      </div>
-                      <div className="owner-details">
-                        <h4>{owner.name}</h4>
-                        <div className="owner-app-meta">
-                          {owner.apps.join(', ')} • {owner.count} Incomplete
-                          Ticket{owner.count > 1 ? 's' : ''}
-                        </div>
-                      </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="min-w-40 flex-1 sm:max-w-64">
+                      <ModusWcSelect
+                        size="sm"
+                        bordered
+                        label=""
+                        aria-label={`Mail type for ${owner.name}`}
+                        value={getMailType(owner.name)}
+                        options={MAIL_TYPE_OPTIONS}
+                        onInputChange={(e) =>
+                          setMailType(owner.name, readInputString(e) || 'reminder')
+                        }
+                      />
                     </div>
-
-                    <StatusChip tone="warn" label="Missing ticket" />
-                  </div>
-
-                  <div className="owner-mail-actions">
-                    <ModusWcSelect
-                      size="sm"
-                      bordered
-                      label=""
-                      aria-label={`Mail type for ${owner.name}`}
-                      value={getMailType(owner.name)}
-                      options={MAIL_TYPE_OPTIONS}
-                      customClass="owner-mail-type-select"
-                      onInputChange={(e) =>
-                        setMailType(owner.name, readInputString(e) || 'reminder')
-                      }
-                    />
                     <ModusWcButton
                       color="tertiary"
                       variant="outlined"
                       size="sm"
                       disabled={mailingOwner === owner.name}
                       aria-label={`Send mail to ${owner.name}`}
-                      title="Send selected mail type with incomplete control table"
                       onButtonClick={() => handleEmailClick(owner)}
                     >
-                      <ModusWcIcon name="email" size="xs" decorative />
-                      {mailingOwner === owner.name ? 'Sending…' : 'Mail'}
+                      <ModusWcIcon name="envelope" version="2.0" size="xs" decorative />
+                      <span>{mailingOwner === owner.name ? 'Sending…' : 'Send mail'}</span>
                     </ModusWcButton>
                   </div>
 
-                  <div className="owner-controls-chips">
+                  <ul className="surface-list flex flex-col">
                     {owner.controls.map((control) => (
-                      <button
-                        type="button"
+                      <ControlRow
                         key={control.id}
-                        className="control-chip missing"
-                        onClick={() => onSelectControl && onSelectControl(control)}
-                        title="Click to view details"
-                      >
-                        <span className="chip-text">
-                          <span className="chip-id">{control['Control ID']}</span>
-                          <span className="chip-app">
-                            ({control['Application Name']})
-                          </span>
-                        </span>
-                        <StatusChip tone="warn" label="No ticket" compact />
-                      </button>
+                        control={control}
+                        onSelectControl={onSelectControl}
+                        trailing={<StatusChip tone="warn" label="No ticket" compact />}
+                      />
                     ))}
-                  </div>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
-        </div>
+                  </ul>
+                </div>
+              </ModusWcCard>
+            </motion.li>
+          ))}
+        </OwnerColumn>
       </div>
 
       <ModusWcModal
         modalId={DRAFT_MAIL_MODAL_ID}
+        aria-labelledby={DRAFT_MAIL_TITLE_ID}
         backdrop="default"
         position="center"
         showClose
-        aria-label="Draft your own mail"
       >
-        <span slot="header">
-          Draft mail{draftOwner ? ` — ${draftOwner.name}` : ''}
-        </span>
-        <div slot="content" className="draft-mail-content">
-          <p className="draft-mail-hint">
-            Write your subject and message. The incomplete controls table for this
-            owner is added automatically by the mail workflow.
-          </p>
+        <div slot="header">
+          <ModusWcTypography
+            id={DRAFT_MAIL_TITLE_ID}
+            hierarchy="h2"
+            size="lg"
+            weight="semibold"
+            label={draftOwner ? `Draft mail — ${draftOwner.name}` : 'Draft mail'}
+          />
+        </div>
+        <div slot="content" className="flex flex-col gap-3">
+          <ModusWcTypography
+            hierarchy="p"
+            size="sm"
+            customClass="surface-muted"
+            label="Write your subject and message. The mail workflow adds this owner's incomplete controls table automatically."
+          />
           <ModusWcTextInput
             size="sm"
             bordered
             label="Subject"
             value={draftSubject}
-            aria-label="Draft mail subject"
             onInputChange={(e) => setDraftSubject(readInputString(e))}
           />
           <ModusWcTextarea
@@ -543,26 +589,29 @@ export default function TwoColumnOwners({
             label="Message"
             rows={8}
             value={draftBody}
-            aria-label="Draft mail message"
             onInputChange={(e) => setDraftBody(readInputString(e))}
           />
-          {draftOwner ? (
-            <div className="draft-mail-preview">
-              <strong>
-                Incomplete controls included ({draftOwner.count}):
-              </strong>
-              <ul>
-                {draftOwner.controls.map((c) => (
-                  <li key={c.id}>
-                    {(c['Control ID'] || '').trim()} —{' '}
-                    {(c['Application Name'] || '').trim()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
+          <div className="flex flex-col gap-1">
+            {draftOwner ? (
+              <>
+                <ModusWcTypography
+                  hierarchy="h3"
+                  size="md"
+                  weight="semibold"
+                  label={`Incomplete controls included (${draftOwner.count})`}
+                />
+                <ul className="m-0 list-disc ps-5">
+                  {draftOwner.controls.map((c) => (
+                    <li key={c.id}>
+                      {(c['Control ID'] || '').trim()} — {(c['Application Name'] || '').trim()}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
         </div>
-        <div slot="footer" className="draft-mail-footer">
+        <div slot="footer" className="flex justify-end gap-2">
           <ModusWcButton
             variant="outlined"
             color="tertiary"
@@ -575,11 +624,11 @@ export default function TwoColumnOwners({
             variant="filled"
             color="primary"
             size="sm"
-            disabled={!draftOwner || mailingOwner === draftOwner?.name}
+            disabled={!draftOwner || isSendingDraft}
             onButtonClick={handleSendDraft}
           >
-            <ModusWcIcon name="email" size="xs" decorative />
-            {mailingOwner === draftOwner?.name ? 'Sending…' : 'Send mail'}
+            <ModusWcIcon name="envelope" version="2.0" size="xs" decorative />
+            <span>{isSendingDraft ? 'Sending…' : 'Send mail'}</span>
           </ModusWcButton>
         </div>
       </ModusWcModal>

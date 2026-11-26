@@ -6,11 +6,17 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
+  ModusWcAlert,
+  ModusWcBadge,
   ModusWcButton,
+  ModusWcCard,
+  ModusWcEmptyState,
   ModusWcIcon,
   ModusWcSelect,
   ModusWcTypography,
+  ModusWcUtilityPanel,
 } from '@trimble-oss/moduswebcomponents-react';
 import { useAuth } from '@trimble-oss/trimble-id-react';
 import {
@@ -40,6 +46,15 @@ import {
   runAgentWithUserToken,
 } from './agentApi';
 import { stashPendingChecklistRun } from './pendingChecklistRun';
+import { useMinWidth } from '../components/shell/useMinWidth';
+import { PUSH_LAYOUT_MIN_PX } from '../components/shell/shellLayout';
+import '../styles/surface-helpers.css';
+import '../styles/assist-panel.css';
+
+/** Shell ids/classes the utility panel attaches to (see components/shell/AppShell.jsx). */
+const PUSH_TARGET_ID = 'main-content';
+const PANEL_HOST_SELECTOR = '.app-body-row';
+const PUSHED_CLASS = 'modus-wc-utility-panel-pushed';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -148,6 +163,9 @@ export default function AssistPanel({
   const [agentRunning, setAgentRunning] = useState(false);
   // Keep iframe mounted after first open so Assist TID session can stick.
   const [everOpened, setEverOpened] = useState(false);
+  // The shell owns <main> and the body row; the panel docks to the body row and pushes <main>.
+  const [dock, setDock] = useState({ host: null, target: null });
+  const isPushLayout = useMinWidth(PUSH_LAYOUT_MIN_PX);
   const assist = useMemo(() => getAssistConfig(), []);
   const useAgentsApi = assist.runtime !== 'assist';
   const pageIsHttps =
@@ -180,24 +198,56 @@ export default function AssistPanel({
     }
   }, [loginWithRedirect, useAgentsApi]);
 
+  // Resolve the shell elements before paint so the panel never renders in the wrong place.
+  useLayoutEffect(() => {
+    setDock({
+      host: document.querySelector(PANEL_HOST_SELECTOR),
+      target: document.getElementById(PUSH_TARGET_ID),
+    });
+  }, []);
+
+  // The utility panel leaves its push class on <main> when it unmounts (route change).
+  useEffect(() => {
+    const target = dock.target;
+    return () => target?.classList.remove(PUSHED_CLASS);
+  }, [dock.target]);
+
+  // Push on desktop, overlay below the shell breakpoint. The component only re-evaluates the
+  // push class on open/close, so keep it in step when the viewport crosses the breakpoint.
+  useEffect(() => {
+    const target = dock.target;
+    if (!target) return;
+    if (open && isPushLayout) {
+      target.classList.add('modus-wc-utility-panel-push-target', PUSHED_CLASS);
+    } else {
+      target.classList.remove(PUSHED_CLASS);
+    }
+  }, [open, isPushLayout, dock.target]);
+
+  // Focus return: remember the opener, send focus back when the panel closes (Escape, ×, Run again).
+  const wasOpenRef = useRef(false);
   useEffect(() => {
     if (open) {
       setEverOpened(true);
       unauthorizedReloadsRef.current = 0;
       returnFocusRef.current = document.activeElement;
-      window.setTimeout(() => {
-        const closeBtn = panelRef.current?.querySelector?.(
-          '[aria-label="Close Assist panel"]'
-        );
-        closeBtn?.focus?.();
-      }, 40);
-    } else if (everOpened) {
+    } else if (wasOpenRef.current) {
       const el = returnFocusRef.current;
-      if (el && typeof el.focus === 'function') {
-        window.setTimeout(() => el.focus(), 0);
+      if (el && typeof el.focus === 'function' && el.isConnected) {
+        window.setTimeout(() => el.focus({ preventScroll: true }), 0);
       }
     }
-  }, [open, everOpened]);
+    wasOpenRef.current = open;
+  }, [open]);
+
+  // Move focus into the panel once it opens. preventScroll: the closed panel sits off-canvas.
+  const handlePanelOpened = useCallback(() => {
+    window.setTimeout(() => {
+      const closeHost = panelRef.current?.querySelector?.('[data-assist-close]');
+      const control = closeHost?.querySelector?.('button') || closeHost;
+      control?.focus?.({ preventScroll: true });
+    }, 0);
+  }, []);
 
   const environment = assist.environment;
   const chatOrigin = useMemo(
@@ -255,15 +305,10 @@ export default function AssistPanel({
     setStatus('');
   }, [open, control, initialQuarter, quarter]);
 
+  // Escape is handled by modus-wc-utility-panel itself (it emits panelClosed).
   useEffect(() => {
-    if (!open) return undefined;
-    setTheme(resolveTheme());
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+    if (open) setTheme(resolveTheme());
+  }, [open]);
 
   const resolveAccessToken = useCallback(
     async ({ forceRefresh = false } = {}) => {
@@ -304,7 +349,7 @@ export default function AssistPanel({
         const err = new Error(
           useAgentsApi
             ? `Login token is missing scope(s): ${missing.join(', ')}. Sign out and sign in again so VITE_ASSIST_API_SCOPE includes agents (user token, not the app client-credentials token).`
-            : `Dashboard token is missing Assist scope(s): ${missing.join(', ')}. Sign out and sign in again (or use Sign in to Assist) so VITE_ASSIST_API_SCOPE=models,skills is on the access token.`
+            : `Dashboard token is missing Assist scope(s): ${missing.join(', ')}. Sign out and sign in again (or use Sign in) so VITE_ASSIST_API_SCOPE=models,skills is on the access token.`
         );
         err.code = 'ASSIST_SCOPES_MISSING';
         err.claims = claims;
@@ -361,8 +406,8 @@ export default function AssistPanel({
           const missing = missingScopesForRuntime(assist.runtime, claims);
           setAuthBridge(
             useAgentsApi
-              ? `Signed in, but this user token cannot call Agents API (missing ${missing.join(', ') || 'agents'}). Use Re-auth for agent scopes below, then sign in again.`
-              : `Dashboard is signed in, but this access token cannot unlock Assist (missing ${missing.join(', ') || 'required'} scope). Use Sign in to Assist below.`
+              ? `Signed in, but this user token cannot call Agents API (missing ${missing.join(', ') || 'agents'}). Use Reauthorize below, then sign in again.`
+              : `Dashboard is signed in, but this access token cannot unlock Assist (missing ${missing.join(', ') || 'required'} scope). Use Sign in below.`
           );
           setStatus(err.message);
           return;
@@ -427,12 +472,12 @@ export default function AssistPanel({
         return 'Refreshed dashboard Trimble ID access token — Assist is reloading.';
       }
       setStatus(
-        `Assist still rejects this dashboard token.${claimHint} Your SPA app must be allowed to request Assist API scopes (models, skills) in Developer Console, and this stage agent must be usable by your account. Use Sign in to Assist to re-consent, or open Assist at assist stage in a normal browser tab.`
+        `Assist still rejects this dashboard token.${claimHint} Your SPA app must be allowed to request Assist API scopes (models, skills) in Developer Console, and this stage agent must be usable by your account. Use Sign in to re-consent, or open Assist at assist stage in a normal browser tab.`
       );
       return 'Dashboard Trimble ID token was rejected by Assist.';
     } catch {
       setStatus(
-        `Assist rejected the dashboard Trimble ID access token.${claimHint} Use Sign in to Assist below so Trimble ID re-issues models+skills, then Run Checklist again.`
+        `Assist rejected the dashboard Trimble ID access token.${claimHint} Use Sign in below so Trimble ID re-issues models+skills, then run the checklist again.`
       );
       return 'Dashboard Trimble ID token was rejected by Assist.';
     }
@@ -543,7 +588,7 @@ export default function AssistPanel({
         `Assist embed at ${chatOrigin} did not connect.${httpHint}`
       );
       setStatus(
-        'Assist iframe did not connect — Run Checklist cannot start until the embed loads.'
+        'Assist iframe did not connect — the checklist cannot start until the embed loads.'
       );
     }, 8000);
 
@@ -624,7 +669,7 @@ export default function AssistPanel({
       } catch (err) {
         setStatus(
           err?.message ||
-            'Could not start Trimble ID sign-in. Open the login screen, then Run Checklist again.'
+            'Could not start Trimble ID sign-in. Open the login screen, then run the checklist again.'
         );
       }
       return;
@@ -790,43 +835,72 @@ export default function AssistPanel({
       (useAgentsApi || iframeReady)
   );
 
-  if (!everOpened && !open) return null;
+  if (!dock.host) return null;
 
-  return (
-    <aside
+  const reauthLabel = useAgentsApi ? 'Reauthorize' : 'Sign in';
+  const reauthAriaLabel = useAgentsApi
+    ? 'Reauthorize for agent scopes'
+    : 'Sign in to Assist';
+  const subtitle = useAgentsApi
+    ? 'Calls the Agents API with your dashboard login user token (not the app client-credentials token). Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.'
+    : 'Passes your dashboard Trimble ID access token into Assist. Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.';
+  const reauthMessage = useAgentsApi
+    ? 'This flow needs your login user Trimble ID token with the agents scope. Sign out and in again, or use Reauthorize above. The n8n app client-credentials token is not used here.'
+    : "Assist needs a dashboard Trimble ID token with the models and skills scopes. The Sign in button inside the chat iframe usually can't open a Trimble ID popup in this browser, so use Sign in above instead.";
+  const embedErrorMessage = embedError
+    ? `${embedError}${
+        pageIsHttps
+          ? ''
+          : ' Restart with npm run dev (HTTPS is enabled in Vite) and open https://localhost:3000. Accept the browser certificate warning, then register the same HTTPS callback URLs on your Trimble ID SPA app.'
+      }`
+    : '';
+  // Collapsed content stays mounted (Modus slots) but must not be tabbable off-canvas.
+  const inert = open ? undefined : true;
+
+  const panel = (
+    <ModusWcUtilityPanel
       ref={panelRef}
-      className={`assist-panel${open ? '' : ' assist-panel--collapsed'}${agentRunning ? ' is-running' : ''}`}
+      expanded={open}
+      pushContent={isPushLayout}
+      targetElement={dock.target}
+      customClass="assist-utility-panel"
       aria-label="Run checklist with Trimble agent"
-      hidden={!open}
-      inert={!open ? true : undefined}
+      onPanelOpened={handlePanelOpened}
+      onPanelClosed={() => onClose?.()}
     >
-      <div className="assist-panel-header">
-        <div className="assist-panel-header-copy">
-          <ModusWcTypography
-            hierarchy="h2"
-            size="md"
-            weight="semibold"
-            label="Run Checklist"
-          />
-          <p className="assist-panel-subtitle">
-            {useAgentsApi
-              ? 'Calls the Agents API with your dashboard login user token (not the app client-credentials token). Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.'
-              : 'Passes your dashboard Trimble ID access token into Assist. Opens the quarter Drive folder, uses the single Google Sheet inside as the target, and runs your Agent Studio checklist skill.'}
-          </p>
-        </div>
+      <div
+        slot="header"
+        inert={inert}
+        className="flex w-full min-w-0 items-center justify-between gap-2"
+      >
+        <ModusWcTypography
+          hierarchy="h2"
+          size="lg"
+          weight="semibold"
+          customClass="!m-0"
+          label="Run checklist"
+        />
         <ModusWcButton
+          data-assist-close
           variant="borderless"
           color="tertiary"
           shape="square"
           size="sm"
-          aria-label="Close Assist panel"
+          aria-label="Close run checklist panel"
           onButtonClick={() => onClose?.()}
         >
-          <ModusWcIcon name="close" size="xs" decorative />
+          <ModusWcIcon name="x" version="2.0" size="xs" decorative />
         </ModusWcButton>
       </div>
 
-      <div className="assist-panel-toolbar">
+      <div slot="body" inert={inert} className="flex h-full min-h-0 min-w-0 flex-col gap-3">
+        <ModusWcTypography
+          hierarchy="p"
+          size="sm"
+          customClass="surface-muted !m-0"
+          label={subtitle}
+        />
+
         <ModusWcSelect
           label="Checklist quarter"
           size="sm"
@@ -837,161 +911,201 @@ export default function AssistPanel({
             if (next) setQuarter(next);
           }}
         />
-        <ModusWcButton
-          variant="filled"
-          color="primary"
-          size="sm"
-          customClass="run-checklist-btn cta-sheen ripple-host assist-run-cta"
-          disabled={!canRunChecklist || needsAssistReauth || agentRunning}
-          aria-busy={agentRunning || undefined}
-          onButtonClick={() => {
-            if (runGuardRef.current || agentRunning) return;
-            void startAudit();
-          }}
-        >
-          <ModusWcIcon name="check_circle" size="xs" decorative />
-          <span className="assist-run-cta-label">
-            {agentRunning ? 'Running…' : 'Run Checklist'}
-          </span>
-        </ModusWcButton>
-        <ModusWcButton
-          variant="outline"
-          color="secondary"
-          size="sm"
-          onButtonClick={() => {
-            void reauthToAssist();
-          }}
-        >
-          <ModusWcIcon name="person" size="xs" decorative />
-          {useAgentsApi ? 'Re-auth for agent scopes' : 'Sign in to Assist'}
-        </ModusWcButton>
-      </div>
 
-      {authBridge ? (
-        <p className="assist-panel-auth" role="status">
-          {authBridge}
-        </p>
-      ) : null}
-
-      {needsAssistReauth ? (
-        <p className="assist-panel-status" role="alert">
-          {useAgentsApi ? (
-            <>
-              This flow needs your <strong>login user</strong> Trimble ID token
-              with the <code>agents</code> scope. Sign out/in or use{' '}
-              <strong>Re-auth for agent scopes</strong> above. The n8n app
-              client-credentials token is not used here.
-            </>
-          ) : (
-            <>
-              Assist needs a dashboard Trimble ID token with{' '}
-              <code>models</code> and <code>skills</code> scopes. The Sign in
-              button inside the chat iframe usually cannot open a TID popup in
-              this browser — use <strong>Sign in to Assist</strong> above
-              instead.
-            </>
-          )}
-        </p>
-      ) : null}
-
-      {control ? (
-        <div className="assist-panel-context">
-          <p>
-            <strong>Control:</strong> {control['Control ID']}
-          </p>
-          <p>
-            <strong>Checklist:</strong>{' '}
-            {checklistName ? (
-              checklistName
-            ) : (
-              <span className="assist-missing-flag" role="status">
-                Checklist is missing
-              </span>
-            )}
-          </p>
-          <p className="assist-panel-drive">
-            <strong>{quarter} folder:</strong>{' '}
-            {drivePreview ? (
-              <a href={drivePreview} target="_blank" rel="noopener noreferrer">
-                Open Drive
-              </a>
-            ) : (
-              <span className="assist-missing-flag" role="status">
-                {quarter} Drive link is missing
-              </span>
-            )}
-          </p>
-          <p className="assist-panel-drive">
-            <strong>Target sheet:</strong>{' '}
-            {isGoogleSheetUrl(knownSheet) ? (
-              <a href={knownSheet} target="_blank" rel="noopener noreferrer">
-                Open Google Sheet
-              </a>
-            ) : (
-              <span className="assist-missing-flag">
-                Resolve from Drive folder (single GSheet)
-              </span>
-            )}
-          </p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ModusWcButton
+            variant="outlined"
+            color="tertiary"
+            size="sm"
+            aria-label={reauthAriaLabel}
+            onButtonClick={() => {
+              void reauthToAssist();
+            }}
+          >
+            <ModusWcIcon name="user" version="2.0" size="xs" decorative />
+            <span>{reauthLabel}</span>
+          </ModusWcButton>
+          <ModusWcButton
+            variant="filled"
+            color="primary"
+            size="sm"
+            disabled={!canRunChecklist || needsAssistReauth || agentRunning}
+            aria-busy={agentRunning || undefined}
+            onButtonClick={() => {
+              if (runGuardRef.current || agentRunning) return;
+              void startAudit();
+            }}
+          >
+            <ModusWcIcon name="clipboard-check" version="2.0" size="xs" decorative />
+            <span>{agentRunning ? 'Running…' : 'Run checklist'}</span>
+          </ModusWcButton>
         </div>
-      ) : (
-        <p className="assist-panel-empty">
-          Choose a completed control, then run the checklist.
-        </p>
-      )}
 
-      {status ? (
-        <p className="assist-panel-status" role="status">
-          {status}
-        </p>
-      ) : null}
-
-      {embedError ? (
-        <div className="assist-embed-error" role="alert">
-          <p>{embedError}</p>
-          {!pageIsHttps ? (
-            <p>
-              Restart with <code>npm run dev</code> (HTTPS is enabled in Vite)
-              and open <code>https://localhost:3000</code>. Accept the browser
-              certificate warning, then register the same HTTPS callback URLs
-              on your Trimble ID SPA app.
-            </p>
+        {/* Alerts mount and unmount inside this plain wrapper, never directly in a Modus slot. */}
+        <div className="flex flex-col gap-2 empty:hidden">
+          {authBridge ? (
+            <ModusWcAlert
+              variant="info"
+              role="status"
+              contentDisplayMode="expandable"
+              alertDescription={authBridge}
+            />
+          ) : null}
+          {needsAssistReauth ? (
+            <ModusWcAlert
+              variant="warning"
+              role="alert"
+              alertTitle="Sign-in needs a new token"
+              alertDescription={reauthMessage}
+            />
+          ) : null}
+          {status ? (
+            <ModusWcAlert variant="info" role="status" alertDescription={status} />
+          ) : null}
+          {embedErrorMessage ? (
+            <ModusWcAlert
+              variant="error"
+              role="alert"
+              alertTitle="Assist didn't connect"
+              alertDescription={embedErrorMessage}
+            />
           ) : null}
         </div>
-      ) : null}
 
-      <div className="assist-panel-chat">
-        {!assist.configured ? (
-          <div className="assist-sdk-stub" role="status">
-            <p>
-              Set <code>VITE_ASSIST_AGENT_ID</code> in <code>.env</code> to the
-              UUID of your Agent Studio agent (the one that has the checklist
-              skill attached).
-            </p>
-          </div>
-        ) : useAgentsApi ? (
-          <div className="assist-sdk-stub assist-agent-transcript" role="log">
-            {agentTranscript ? (
-              <pre>{agentTranscript}</pre>
-            ) : (
-              <p>
-                Agent replies stream here. Runtime uses your SPA login user
-                token against the Agents API (
-                <code>VITE_AGENT_RUNTIME=api</code>).
-              </p>
-            )}
-          </div>
-        ) : (
-          <iframe
-            ref={iframeRef}
-            title="Trimble Assist"
-            src={chatUrl}
-            className="assist-iframe"
-            sandbox={ASSIST_IFRAME_SANDBOX}
-            allow="clipboard-read; clipboard-write"
+        <div className={control ? 'surface-hidden' : ''}>
+          <ModusWcEmptyState
+            variant="compact"
+            illustration="selection_plus"
+            heading="No control selected"
+            subtitle="Choose a ticketed control, then run the checklist."
           />
-        )}
+        </div>
+
+        <div className={control ? '' : 'surface-hidden'}>
+          <ModusWcCard bordered padding="compact">
+            <div slot="title" className="mb-2 flex w-full min-w-0 items-center gap-2">
+              <ModusWcIcon name="clipboard-check" version="2.0" decorative />
+              <ModusWcTypography
+                hierarchy="h3"
+                size="md"
+                weight="semibold"
+                customClass="!m-0"
+                label="Selected control"
+              />
+            </div>
+            <div className="flex min-w-0 flex-col gap-2">
+              <ContextRow label="Control">
+                <ModusWcTypography
+                  hierarchy="p"
+                  size="sm"
+                  customClass="!m-0"
+                  label={control?.['Control ID'] || '—'}
+                />
+              </ContextRow>
+              <ContextRow label="Checklist">
+                {checklistName ? (
+                  <ModusWcTypography
+                    hierarchy="p"
+                    size="sm"
+                    customClass="!m-0 break-words"
+                    label={checklistName}
+                  />
+                ) : (
+                  <ModusWcBadge color="warning" size="sm">
+                    <span>Checklist is missing</span>
+                  </ModusWcBadge>
+                )}
+              </ContextRow>
+              <ContextRow label={`${quarter} folder`}>
+                {drivePreview ? (
+                  <a
+                    className="surface-link"
+                    href={drivePreview}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open Drive
+                  </a>
+                ) : (
+                  <ModusWcBadge color="warning" size="sm">
+                    <span>{`${quarter} Drive link is missing`}</span>
+                  </ModusWcBadge>
+                )}
+              </ContextRow>
+              <ContextRow label="Target sheet">
+                {isGoogleSheetUrl(knownSheet) ? (
+                  <a
+                    className="surface-link"
+                    href={knownSheet}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open sheet
+                  </a>
+                ) : (
+                  <ModusWcTypography
+                    hierarchy="p"
+                    size="sm"
+                    customClass="surface-muted !m-0"
+                    label="Resolved from the Drive folder (single Google Sheet)"
+                  />
+                )}
+              </ContextRow>
+            </div>
+          </ModusWcCard>
+        </div>
+
+        <div className="assist-chat flex min-h-64 min-w-0 flex-1 flex-col">
+          {!assist.configured ? (
+            <ModusWcAlert
+              variant="warning"
+              role="status"
+              alertTitle="Agent isn't configured"
+              alertDescription="Set VITE_ASSIST_AGENT_ID in .env to the UUID of your Agent Studio agent (the one with the checklist skill attached)."
+            />
+          ) : useAgentsApi ? (
+            <div role="log" aria-live="polite" className="assist-transcript">
+              {agentTranscript ? (
+                <pre>{agentTranscript}</pre>
+              ) : (
+                <ModusWcTypography
+                  hierarchy="p"
+                  size="sm"
+                  customClass="surface-muted !m-0"
+                  label="Agent replies stream here. The run uses your login user token against the Agents API (VITE_AGENT_RUNTIME=api)."
+                />
+              )}
+            </div>
+          ) : everOpened ? (
+            <iframe
+              ref={iframeRef}
+              title="Trimble Assist"
+              src={chatUrl}
+              className="assist-chat-frame"
+              sandbox={ASSIST_IFRAME_SANDBOX}
+              allow="clipboard-read; clipboard-write"
+            />
+          ) : null}
+        </div>
       </div>
-    </aside>
+    </ModusWcUtilityPanel>
+  );
+
+  return createPortal(panel, dock.host);
+}
+
+/** Label + value line in the selected-control card. */
+function ContextRow({ label, children }) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      <ModusWcTypography
+        hierarchy="p"
+        size="sm"
+        weight="semibold"
+        customClass="!m-0"
+        label={`${label}:`}
+      />
+      {children}
+    </div>
   );
 }

@@ -1,0 +1,19 @@
+/* Sign-in and session-check screens. Canvas uses the Modus page token so light/dark follow the theme. */
+
+.login-screen {
+  display: grid;
+  place-items: center;
+  height: 100dvh;
+  overflow: auto;
+  padding: clamp(1rem, 5vw, 3rem);
+  background-color: var(--modus-wc-color-base-page);
+  color: var(--modus-wc-color-base-content);
+}
+
+.login-stage {
+  width: min(100%, 28rem);
+}
+
+.login-logo {
+  width: 7.5rem;
+}

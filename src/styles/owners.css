@@ -1,0 +1,18 @@
+/* Overview: owners by ticket status. Layout lives in Tailwind classes; only Modus gaps are filled here. */
+
+/* Status rail on the nested owner card (icon + label badge carry the status; the rail is a cue). */
+.owner-item.modus-wc-card {
+  border-inline-start: 3px solid transparent;
+}
+
+.owner-item--ticketed.modus-wc-card {
+  border-inline-start-color: var(--modus-wc-color-success);
+}
+
+.owner-item--missing.modus-wc-card {
+  border-inline-start-color: var(--modus-wc-color-warning);
+}
+
+.owner-control-row + .owner-control-row {
+  border-top: 1px solid var(--modus-wc-color-base-300);
+}
