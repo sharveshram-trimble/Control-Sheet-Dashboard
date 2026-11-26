@@ -1,7 +1,18 @@
-import React, { useState } from 'react';
-import { ModusWcTextInput } from '@trimble-oss/moduswebcomponents-react';
+import React, { useMemo, useState } from 'react';
+import {
+  ModusWcSelect,
+  ModusWcTextInput,
+} from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
 import StatusChip from './StatusChip';
+
+const SORT_OPTIONS = [
+  { label: 'Open tickets first', value: 'open' },
+  { label: 'Least covered first', value: 'coverage-asc' },
+  { label: 'Most covered first', value: 'coverage-desc' },
+  { label: 'Most controls', value: 'controls' },
+  { label: 'Name A–Z', value: 'name' },
+];
 
 function ownerState(owner) {
   if (owner.pendingControlsCount === 0) {
@@ -13,8 +24,51 @@ function ownerState(owner) {
   return { key: 'pending', tone: 'pending', label: 'Not started' };
 }
 
+function coverage(owner) {
+  return owner.totalControls > 0
+    ? owner.completedControlsCount / owner.totalControls
+    : 0;
+}
+
+function sortOwners(list, sortBy) {
+  const next = [...list];
+  switch (sortBy) {
+    case 'name':
+      return next.sort((a, b) => a.name.localeCompare(b.name));
+    case 'controls':
+      return next.sort(
+        (a, b) =>
+          b.totalControls - a.totalControls || a.name.localeCompare(b.name)
+      );
+    case 'coverage-asc':
+      return next.sort(
+        (a, b) =>
+          coverage(a) - coverage(b) ||
+          b.pendingControlsCount - a.pendingControlsCount ||
+          a.name.localeCompare(b.name)
+      );
+    case 'coverage-desc':
+      return next.sort(
+        (a, b) =>
+          coverage(b) - coverage(a) ||
+          a.pendingControlsCount - b.pendingControlsCount ||
+          a.name.localeCompare(b.name)
+      );
+    case 'open':
+    default:
+      return next.sort(
+        (a, b) =>
+          b.pendingControlsCount - a.pendingControlsCount ||
+          b.totalControls - a.totalControls ||
+          a.name.localeCompare(b.name)
+      );
+  }
+}
+
 export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const [ownerSearch, setOwnerSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('open');
 
   const accessControls = items.filter((i) => i['Sub-Process'] === 'Access Management');
   const changeControls = items.filter((i) => i['Sub-Process'] === 'Change Management');
@@ -50,18 +104,34 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
         a.app.localeCompare(b.app)
     );
 
-  const filteredOwners = ownerStats
-    .filter(
-      (o) =>
-        o.name.toLowerCase().includes(ownerSearch.toLowerCase()) ||
-        o.apps.some((a) => a.toLowerCase().includes(ownerSearch.toLowerCase()))
-    )
-    .sort(
-      (a, b) =>
-        b.pendingControlsCount - a.pendingControlsCount ||
-        b.totalControls - a.totalControls ||
-        a.name.localeCompare(b.name)
-    );
+  const statusCounts = useMemo(() => {
+    const counts = { all: ownerStats.length, done: 0, partial: 0, pending: 0 };
+    ownerStats.forEach((o) => {
+      counts[ownerState(o).key] += 1;
+    });
+    return counts;
+  }, [ownerStats]);
+
+  const filteredOwners = useMemo(() => {
+    const q = ownerSearch.trim().toLowerCase();
+    const matched = ownerStats.filter((o) => {
+      const state = ownerState(o);
+      if (statusFilter !== 'all' && state.key !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        o.name.toLowerCase().includes(q) ||
+        o.apps.some((a) => a.toLowerCase().includes(q))
+      );
+    });
+    return sortOwners(matched, sortBy);
+  }, [ownerStats, ownerSearch, statusFilter, sortBy]);
+
+  const statusFilters = [
+    { id: 'all', label: 'All', count: statusCounts.all },
+    { id: 'pending', label: 'Not started', count: statusCounts.pending },
+    { id: 'partial', label: 'In progress', count: statusCounts.partial },
+    { id: 'done', label: 'Complete', count: statusCounts.done },
+  ];
 
   const getInitials = (name) => {
     if (!name) return '??';
@@ -75,115 +145,177 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
       <div className="table-section-card analytics-panel">
         <div className="analytics-panel-header">
           <div>
-            <h3>Owner progress ({ownerStats.length})</h3>
-            <p>
-              Ticket coverage by owner — counts first, incomplete owners up top.
-            </p>
+            <h3>
+              Owner progress ({filteredOwners.length}
+              {filteredOwners.length !== ownerStats.length
+                ? ` of ${ownerStats.length}`
+                : ''}
+              )
+            </h3>
+            <p>Filter by status, sort the grid, search owner or application.</p>
+          </div>
+        </div>
+
+        <div className="analytics-toolbar">
+          <div
+            className="analytics-filter-row"
+            role="tablist"
+            aria-label="Owner status filter"
+          >
+            {statusFilters.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === f.id}
+                className={`checklist-filter-chip${statusFilter === f.id ? ' is-active' : ''}`}
+                onClick={() => setStatusFilter(f.id)}
+              >
+                {f.label}
+                <span className="checklist-filter-count">{f.count}</span>
+              </button>
+            ))}
           </div>
 
-          <ModusWcTextInput
-            size="sm"
-            bordered
-            includeSearch
-            includeClear
-            type="search"
-            placeholder="Search owner or application…"
-            value={ownerSearch}
-            aria-label="Search owners"
-            customClass="analytics-search-input"
-            onInputChange={(e) => setOwnerSearch(readInputString(e))}
-          />
+          <div className="analytics-toolbar-actions">
+            <ModusWcSelect
+              size="sm"
+              bordered
+              label=""
+              aria-label="Sort owners"
+              value={sortBy}
+              options={SORT_OPTIONS}
+              customClass="analytics-sort-select"
+              onInputChange={(e) =>
+                setSortBy(readInputString(e) || 'open')
+              }
+            />
+            <ModusWcTextInput
+              size="sm"
+              bordered
+              includeSearch
+              includeClear
+              type="search"
+              placeholder="Search owner or application…"
+              value={ownerSearch}
+              aria-label="Search owners"
+              customClass="analytics-search-input"
+              onInputChange={(e) => setOwnerSearch(readInputString(e))}
+            />
+          </div>
         </div>
 
-        <div className="owner-progress-grid">
-          {filteredOwners.map((owner) => {
-            const state = ownerState(owner);
-            const ticketed = owner.completedControlsCount;
-            const total = owner.totalControls;
-            const barPct = total > 0 ? (ticketed / total) * 100 : 0;
+        {filteredOwners.length === 0 ? (
+          <div className="owner-empty-state">
+            <p>No owners match this filter or search.</p>
+            <button
+              type="button"
+              className="chip-text-button"
+              onClick={() => {
+                setStatusFilter('all');
+                setOwnerSearch('');
+              }}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="owner-progress-grid">
+            {filteredOwners.map((owner) => {
+              const state = ownerState(owner);
+              const ticketed = owner.completedControlsCount;
+              const total = owner.totalControls;
+              const barPct = total > 0 ? (ticketed / total) * 100 : 0;
 
-            return (
-              <div
-                key={owner.name}
-                className={`owner-progress-card ${state.key}`}
-              >
-                <div className="owner-card-top">
-                  <div className="owner-profile">
-                    <div
-                      className={`owner-avatar ${
-                        state.key === 'done'
-                          ? 'completed'
-                          : state.key === 'pending'
-                            ? 'pending'
-                            : ''
-                      }`}
-                    >
-                      {getInitials(owner.name)}
-                    </div>
-                    <div className="owner-details">
-                      <h4>{owner.name}</h4>
-                      <div className="owner-app-meta">{owner.apps.join(', ')}</div>
-                    </div>
-                  </div>
-
-                  <StatusChip tone={state.tone} label={state.label} compact />
-                </div>
-
-                <div className="owner-progress-meter">
-                  <div className="progress-meta-row">
-                    <span>
-                      <strong className="num">{ticketed}</strong> of{' '}
-                      <strong className="num">{total}</strong> ticketed
-                    </span>
-                    {owner.pendingControlsCount > 0 ? (
-                      <span className="progress-meta-pending">
-                        {owner.pendingControlsCount} open
-                      </span>
-                    ) : (
-                      <span className="progress-meta-done">All clear</span>
-                    )}
-                  </div>
-                  <div
-                    className="progress-track"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={total}
-                    aria-valuenow={ticketed}
-                    aria-label={`${ticketed} of ${total} controls ticketed for ${owner.name}`}
-                  >
-                    <div
-                      className={`progress-fill ${
-                        state.key === 'done'
-                          ? 'success'
-                          : state.key === 'partial'
-                            ? 'primary'
-                            : 'idle'
-                      }`}
-                      style={{ width: `${barPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                <ul className="owner-control-rows">
-                  {owner.controls.map((c) => {
-                    const done = c.isCompleted;
-                    return (
-                      <li
-                        key={c.id}
-                        className={`owner-control-row ${done ? 'is-done' : 'is-open'}`}
+              return (
+                <div
+                  key={owner.name}
+                  className={`owner-progress-card ${state.key}`}
+                >
+                  <div className="owner-card-top">
+                    <div className="owner-profile">
+                      <div
+                        className={`owner-avatar ${
+                          state.key === 'done'
+                            ? 'completed'
+                            : state.key === 'pending'
+                              ? 'pending'
+                              : ''
+                        }`}
                       >
-                        <span className="owner-control-id">{c['Control ID']}</span>
-                        <span className="owner-control-status">
-                          {done ? c['TICKET NUMBER'] || 'Ticketed' : 'Missing ticket'}
+                        {getInitials(owner.name)}
+                      </div>
+                      <div className="owner-details">
+                        <h4>{owner.name}</h4>
+                        <div className="owner-app-meta">
+                          {owner.apps.join(', ')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <StatusChip tone={state.tone} label={state.label} compact />
+                  </div>
+
+                  <div className="owner-progress-meter">
+                    <div className="progress-meta-row">
+                      <span>
+                        <strong className="num">{ticketed}</strong> of{' '}
+                        <strong className="num">{total}</strong> ticketed
+                      </span>
+                      {owner.pendingControlsCount > 0 ? (
+                        <span className="progress-meta-pending">
+                          {owner.pendingControlsCount} open
                         </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            );
-          })}
-        </div>
+                      ) : (
+                        <span className="progress-meta-done">All clear</span>
+                      )}
+                    </div>
+                    <div
+                      className="progress-track"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={total}
+                      aria-valuenow={ticketed}
+                      aria-label={`${ticketed} of ${total} controls ticketed for ${owner.name}`}
+                    >
+                      <div
+                        className={`progress-fill ${
+                          state.key === 'done'
+                            ? 'success'
+                            : state.key === 'partial'
+                              ? 'primary'
+                              : 'idle'
+                        }`}
+                        style={{ width: `${barPct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <ul className="owner-control-rows">
+                    {owner.controls.map((c) => {
+                      const done = c.isCompleted;
+                      return (
+                        <li
+                          key={c.id}
+                          className={`owner-control-row ${done ? 'is-done' : 'is-open'}`}
+                        >
+                          <span className="owner-control-id">
+                            {c['Control ID']}
+                          </span>
+                          <span className="owner-control-status">
+                            {done
+                              ? c['TICKET NUMBER'] || 'Ticketed'
+                              : 'Missing ticket'}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="subprocess-grid">
