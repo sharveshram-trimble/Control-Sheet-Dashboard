@@ -11,21 +11,22 @@
   },
   "dependencies": {
     "@trimble-agentic-external-npm-local/agentic-platform-sdk-iframe-typescript": "2.0.1",
-    "@trimble-oss/moduswebcomponents": "^1.20.0",
-    "@trimble-oss/moduswebcomponents-react": "^1.20.0-react19",
+    "@trimble-oss/moduswebcomponents": "1.24.0",
+    "@trimble-oss/moduswebcomponents-react": "1.24.0-react19",
     "@trimble-oss/trimble-id-react": "1.0.4",
-    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.43.0",
-    "lucide-react": "^1.61.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "react-router-dom": "7.18.7"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "4.3.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-basic-ssl": "2.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.88.0",
+    "tailwindcss": "4.3.5",
     "vite": "^8.3.4"
   }
 }

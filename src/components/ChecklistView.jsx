@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
+  ModusWcBadge,
   ModusWcButton,
+  ModusWcCard,
+  ModusWcChip,
+  ModusWcEmptyState,
   ModusWcIcon,
   ModusWcSelect,
   ModusWcTextInput,
+  ModusWcTypography,
 } from '@trimble-oss/moduswebcomponents-react';
 import AssistPanel from '../assist/AssistPanel';
 import {
@@ -17,14 +22,9 @@ import {
   targetSheetForQuarter,
 } from '../assist/assistConfig';
 import { readInputString } from '../utils/modusFormEvents';
-import {
-  chipPop,
-  drawerSpring,
-  fadeUp,
-  staggerContainer,
-  staggerItem,
-} from '../motion/presets';
-import StatusChip from './StatusChip';
+import { chipPop, staggerContainer, staggerItem } from '../motion/presets';
+import '../styles/surface-helpers.css';
+import '../styles/checklist.css';
 
 const QUARTER_OPTIONS = [
   { label: 'Q1', value: 'Q1' },
@@ -37,7 +37,7 @@ const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'ready', label: 'Ready to run' },
   { id: 'blocked', label: 'Blocked' },
-  { id: 'done', label: 'Has OUTPUT' },
+  { id: 'done', label: 'Has output' },
 ];
 
 function isHttpUrl(value) {
@@ -62,56 +62,79 @@ function readinessFor(item, quarter) {
   return { key: 'blocked', output: null, hasChecklist, hasDrive, canRun: false };
 }
 
+/** Link to a checklist or target sheet, a missing-state badge, or plain text. */
 function SheetLink({ value, missingLabel, openLabel }) {
   const resolved = String(value || '')
     .replace(/\u200b/g, '')
     .trim();
 
   if (!resolved || resolved === '-' || resolved === '—' || /^n\/?a$/i.test(resolved)) {
-    return <span className="checklist-missing">{missingLabel}</span>;
+    return (
+      <ModusWcBadge color="warning" size="sm">
+        <span>{missingLabel}</span>
+      </ModusWcBadge>
+    );
   }
 
   if (isHttpUrl(resolved)) {
     return (
-      <a
-        className="checklist-sheet-link"
-        href={resolved}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <ModusWcIcon name="file" size="xs" decorative />
-        {openLabel}
+      <a className="surface-link" href={resolved} target="_blank" rel="noopener noreferrer">
+        <ModusWcIcon name="file-text" version="2.0" size="xs" decorative />
+        <span>{openLabel}</span>
       </a>
     );
   }
 
-  return <span className="checklist-text-value">{resolved}</span>;
+  return (
+    <ModusWcTypography hierarchy="p" size="sm" customClass="!m-0 break-words" label={resolved} />
+  );
 }
 
-function OutputChip({ status }) {
+const OUTPUT_BADGES = {
+  success: { color: 'success', icon: 'check-circle', label: 'Success' },
+  failed: { color: 'danger', icon: 'warning-circle', label: 'Failed' },
+  pending: { color: 'default', icon: 'clock', label: 'Pending' },
+};
+
+function OutputBadge({ status }) {
   const reduceMotion = useReducedMotion();
-  const chip =
-    status === 'success'
-      ? { className: 'output-chip output-chip--ok', icon: 'check_circle', label: 'Success' }
-      : status === 'failed'
-        ? { className: 'output-chip output-chip--bad', icon: 'warning', label: 'Failed' }
-        : {
-            className: 'output-chip output-chip--idle',
-            icon: 'time',
-            label: 'Pending',
-          };
+  const badge = OUTPUT_BADGES[status] || OUTPUT_BADGES.pending;
   const pop = chipPop(reduceMotion);
 
   return (
-    <motion.span
-      key={chip.label}
-      className={chip.className}
-      aria-label={status ? undefined : 'Output pending'}
-      {...pop}
-    >
-      <ModusWcIcon name={chip.icon} size="xs" decorative />
-      {chip.label}
+    <motion.span key={badge.label} className="inline-flex" {...pop}>
+      <ModusWcBadge color={badge.color} size="sm">
+        <span className="inline-flex items-center gap-1">
+          <ModusWcIcon name={badge.icon} version="2.0" size="xs" decorative />
+          <span>{status ? badge.label : 'Output pending'}</span>
+        </span>
+      </ModusWcBadge>
     </motion.span>
+  );
+}
+
+function ReadinessTile({ label, value, tone }) {
+  return (
+    <div className="h-full min-w-0">
+      <ModusWcCard bordered padding="compact" customClass="h-full">
+        <div slot="title" className="flex w-full min-w-0 items-center">
+          <ModusWcTypography
+            hierarchy="h3"
+            size="md"
+            weight="semibold"
+            customClass="!m-0"
+            label={label}
+          />
+        </div>
+        <ModusWcTypography
+          hierarchy="p"
+          size="3xl"
+          weight="semibold"
+          customClass={`tabular-nums !m-0${tone ? ` checklist-kpi--${tone}` : ''}`}
+          label={String(value)}
+        />
+      </ModusWcCard>
+    </div>
   );
 }
 
@@ -170,10 +193,10 @@ export default function ChecklistView({
     });
   }, [enriched, filter, search, quarter]);
 
+  // Open the run drawer for a row. Selecting the row for the detail modal is a separate action.
   const openChecklist = (item) => {
     setAuditControl(item);
     setAssistOpen(true);
-    onSelectControl?.(item);
   };
 
   useEffect(() => {
@@ -183,137 +206,166 @@ export default function ChecklistView({
     onFocusControlHandled?.();
   }, [focusControl, onFocusControlHandled]);
 
+  const hasFilters = filter !== 'all' || search.trim() !== '';
+  const clearFilters = () => {
+    setFilter('all');
+    setSearch('');
+  };
+  const activeFilterLabel = FILTERS.find((f) => f.id === filter)?.label || 'All';
+
   const listVariants = staggerContainer(reduceMotion);
-  const emptyMotion = fadeUp(reduceMotion, 8);
 
   return (
-    <div className={`checklist-ops${assistOpen ? ' checklist-ops--rail-open' : ''}`}>
-      <section className="checklist-ops-main" aria-label="Checklist runs">
-        <header className="checklist-ops-hero">
-          <div className="checklist-ops-hero-copy">
-            <p className="checklist-ops-kicker">Audit action</p>
-            <h2>Checklist runs</h2>
-            <p>
-              Ticketed controls only. Run Checklist is the bold action — OUTPUT
-              is success only when every checkpoint passes.
-            </p>
+    <div className="flex min-w-0 flex-col gap-3">
+      <header className="grid min-w-0 grid-cols-1 items-start gap-3 md:grid-cols-[minmax(0,1fr)_max-content]">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div>
+            <ModusWcBadge color="default" size="sm" variant="outlined">
+              <span>Audit action</span>
+            </ModusWcBadge>
           </div>
-          <div className="checklist-ops-hero-meta">
-            <ModusWcSelect
-              label="Quarter"
-              size="sm"
-              value={quarter}
-              options={QUARTER_OPTIONS}
-              onInputChange={(e) => {
-                const next = readInputString(e);
-                if (next) setQuarter(next);
-              }}
-            />
-          </div>
-        </header>
-
-        <div className="checklist-kpi-strip" aria-label="Checklist readiness">
-          <button
-            type="button"
-            className={`checklist-kpi${filter === 'ready' ? ' is-active' : ''}`}
-            onClick={() => setFilter('ready')}
-          >
-            <span className="checklist-kpi-value">{counts.ready}</span>
-            <span className="checklist-kpi-label">Ready to run</span>
-          </button>
-          <button
-            type="button"
-            className={`checklist-kpi checklist-kpi--warn${filter === 'blocked' ? ' is-active' : ''}`}
-            onClick={() => setFilter('blocked')}
-          >
-            <span className="checklist-kpi-value">{counts.blocked}</span>
-            <span className="checklist-kpi-label">Blocked</span>
-          </button>
-          <button
-            type="button"
-            className={`checklist-kpi checklist-kpi--ok${filter === 'done' ? ' is-active' : ''}`}
-            onClick={() => setFilter('done')}
-          >
-            <span className="checklist-kpi-value">{counts.done}</span>
-            <span className="checklist-kpi-label">Has OUTPUT</span>
-          </button>
-          <button
-            type="button"
-            className={`checklist-kpi${filter === 'all' ? ' is-active' : ''}`}
-            onClick={() => setFilter('all')}
-          >
-            <span className="checklist-kpi-value">{counts.all}</span>
-            <span className="checklist-kpi-label">Ticketed</span>
-          </button>
-        </div>
-
-        <div className="checklist-ops-toolbar">
-          <div className="checklist-filter-row" role="tablist" aria-label="Readiness filter">
-            {FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={filter === f.id}
-                className={`checklist-filter-chip${filter === f.id ? ' is-active' : ''}`}
-                onClick={() => setFilter(f.id)}
-              >
-                {f.label}
-                <span className="checklist-filter-count">{counts[f.id]}</span>
-              </button>
-            ))}
-          </div>
-          <ModusWcTextInput
-            size="sm"
-            bordered
-            includeSearch
-            includeClear
-            type="search"
-            placeholder="Search control, owner, ticket…"
-            value={search}
-            aria-label="Search checklist rows"
-            customClass="checklist-search-input"
-            onInputChange={(e) => setSearch(readInputString(e))}
+          <ModusWcTypography
+            hierarchy="h1"
+            size="2xl"
+            weight="semibold"
+            customClass="!m-0"
+            label="Checklist runs"
+          />
+          <ModusWcTypography
+            hierarchy="p"
+            size="md"
+            customClass="surface-muted !m-0"
+            label="Ticketed controls only. A run succeeds only when every checkpoint passes."
           />
         </div>
+        <div className="w-full md:w-48">
+          <ModusWcSelect
+            label="Quarter"
+            size="sm"
+            value={quarter}
+            options={QUARTER_OPTIONS}
+            onInputChange={(e) => {
+              const next = readInputString(e);
+              if (next) setQuarter(next);
+            }}
+          />
+        </div>
+      </header>
 
-        <motion.ul
-          className="checklist-run-list"
-          variants={listVariants}
-          initial="hidden"
-          animate="show"
-        >
-          <AnimatePresence mode="popLayout">
-            {visible.length === 0 ? (
-              <motion.li
-                key="empty"
-                className="checklist-empty-state"
-                {...emptyMotion}
-              >
-                <h3>No rows match this view</h3>
-                <p>
-                  {filter === 'ready'
-                    ? 'No controls are ready — add a checklist sheet and quarter Drive link.'
-                    : 'Clear search or switch readiness filter.'}
-                </p>
-                {filter !== 'all' ? (
-                  <button
-                    type="button"
-                    className="checklist-empty-action"
-                    onClick={() => setFilter('all')}
-                  >
-                    Show all ticketed
-                  </button>
-                ) : null}
-              </motion.li>
-            ) : (
-              visible.map(({ item, readiness }, index) => {
+      <section aria-labelledby="checklist-readiness-heading" className="flex min-w-0 flex-col">
+        <ModusWcTypography
+          id="checklist-readiness-heading"
+          hierarchy="h2"
+          size="md"
+          customClass="sr-only"
+          label="Checklist readiness"
+        />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <ReadinessTile label="Ready to run" value={counts.ready} />
+          <ReadinessTile label="Blocked" value={counts.blocked} tone="warning" />
+          <ReadinessTile label="Has output" value={counts.done} tone="success" />
+          <ReadinessTile label="Ticketed" value={counts.all} />
+        </div>
+      </section>
+
+      <ModusWcCard bordered padding="compact">
+        <div slot="title" className="mb-4 flex w-full min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <ModusWcIcon name="clipboard-check" version="2.0" decorative />
+            <ModusWcTypography
+              hierarchy="h2"
+              size="lg"
+              weight="semibold"
+              label="Ticketed controls"
+            />
+          </div>
+          <ModusWcBadge color="default" size="sm">
+            <span>{`${visible.length} of ${counts.all}`}</span>
+          </ModusWcBadge>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+            <div
+              role="group"
+              aria-label="Readiness filter"
+              className="flex min-w-0 flex-wrap items-center gap-2"
+            >
+              {FILTERS.map((f) => (
+                <ModusWcChip
+                  key={f.id}
+                  size="sm"
+                  variant="outline"
+                  active={filter === f.id}
+                  label={`${f.label} (${counts[f.id]})`}
+                  onChipClick={() => setFilter(f.id)}
+                />
+              ))}
+              <span className={hasFilters ? '' : 'surface-hidden'}>
+                <ModusWcButton
+                  variant="borderless"
+                  color="tertiary"
+                  size="sm"
+                  onButtonClick={clearFilters}
+                >
+                  Clear filters
+                </ModusWcButton>
+              </span>
+            </div>
+            <div className="w-full sm:w-72">
+              <ModusWcTextInput
+                size="sm"
+                bordered
+                includeSearch
+                includeClear
+                type="search"
+                placeholder="Search control, owner or ticket"
+                value={search}
+                aria-label="Search checklist rows"
+                onInputChange={(e) => setSearch(readInputString(e))}
+              />
+            </div>
+          </div>
+
+          <p className="sr-only" role="status">
+            {`${visible.length} of ${counts.all} controls shown. Filter: ${activeFilterLabel}.`}
+          </p>
+
+          <div className={visible.length === 0 ? '' : 'surface-hidden'}>
+            <ModusWcEmptyState
+              variant="compact"
+              illustration="selection_plus"
+              heading="No controls match this view"
+              subtitle={
+                filter === 'ready'
+                  ? 'None are ready. Add a checklist sheet and a quarter Drive link first.'
+                  : 'Clear the search or switch the readiness filter.'
+              }
+              actionLabel={hasFilters ? 'Clear filters' : undefined}
+              onActionClick={clearFilters}
+            />
+          </div>
+
+          <motion.ul
+            className={
+              visible.length === 0 ? 'surface-hidden' : 'surface-list flex flex-col gap-2'
+            }
+            variants={listVariants}
+            initial="hidden"
+            animate="show"
+          >
+            <AnimatePresence mode="popLayout">
+              {visible.map(({ item, readiness }, index) => {
                 const id = item.id || item['Control ID'];
                 const blockReason = !readiness.hasChecklist
                   ? 'Checklist sheet missing'
                   : !readiness.hasDrive
                     ? `${quarter} Drive link missing`
                     : null;
+                const isSelected =
+                  assistOpen &&
+                  auditControl &&
+                  (auditControl.id || auditControl['Control ID']) === id;
 
                 return (
                   <motion.li
@@ -323,130 +375,149 @@ export default function ChecklistView({
                     initial="hidden"
                     animate="show"
                     exit="exit"
-                    className={`checklist-run-card checklist-run-card--${readiness.key}${
-                      auditControl &&
-                      (auditControl.id || auditControl['Control ID']) === id &&
-                      assistOpen
-                        ? ' is-selected'
-                        : ''
-                    }`}
                   >
-                    <div className="checklist-run-top">
-                      <div className="checklist-run-id-block">
-                        <button
-                          type="button"
-                          className="checklist-control-link"
-                          onClick={() => onSelectControl?.(item)}
-                        >
-                          {item['Control ID']}
-                        </button>
-                        <p className="checklist-run-meta">
-                          {item['Application Name']} · {item['Control Owner']}
-                        </p>
-                        <p className="checklist-run-title">
-                          {item['Control Title']}
-                        </p>
-                      </div>
-                      <div className="checklist-run-status">
-                        <StatusChip
-                          tone="info"
-                          label={item['TICKET NUMBER'] || 'Ticketed'}
-                          compact
-                        />
-                        <OutputChip status={readiness.output} />
-                      </div>
-                    </div>
-
-                    <div className="checklist-run-links">
-                      <div>
-                        <span className="checklist-field-label">Checklist</span>
-                        <SheetLink
-                          value={checklistLabel(item)}
-                          missingLabel="Checklist is missing"
-                          openLabel="Open checklist"
-                        />
-                      </div>
-                      <div>
-                        <span className="checklist-field-label">
-                          Target ({quarter})
-                        </span>
-                        <SheetLink
-                          value={targetSheetForQuarter(item, quarter)}
-                          missingLabel="Target sheet is missing"
-                          openLabel={
-                            isGoogleSheetUrl(targetSheetForQuarter(item, quarter))
-                              ? 'Open Google Sheet'
-                              : 'Open Drive folder'
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="checklist-run-actions">
-                      {blockReason ? (
-                        <span className="checklist-block-reason">
-                          <ModusWcIcon name="warning" size="xs" decorative />
-                          {blockReason}
-                        </span>
-                      ) : (
-                        <span className="checklist-ready-hint">
-                          Ready for {quarter}
-                        </span>
-                      )}
-                      <span
-                        className="checklist-run-cta"
-                        onClick={(e) => {
-                          // Native fallback when Modus buttonClick does not fire.
-                          if (!readiness.canRun) return;
-                          if (e.target?.closest?.('a')) return;
-                          openChecklist(item);
-                        }}
+                    <ModusWcCard
+                      bordered={false}
+                      padding="compact"
+                      customClass={`checklist-run checklist-run--${readiness.key}${
+                        isSelected ? ' is-selected' : ''
+                      }`}
+                    >
+                      <div
+                        slot="title"
+                        className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2"
                       >
+                        <ModusWcTypography
+                          hierarchy="h3"
+                          size="md"
+                          weight="semibold"
+                          customClass="!m-0"
+                          label={item['Control ID']}
+                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <ModusWcBadge color="default" size="sm" variant="outlined">
+                            <span>{item['TICKET NUMBER'] || 'Ticketed'}</span>
+                          </ModusWcBadge>
+                          <OutputBadge status={readiness.output} />
+                        </div>
+                      </div>
+
+                      <div className="flex min-w-0 flex-col gap-2">
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="sm"
+                          customClass="surface-muted !m-0"
+                          label={`${item['Application Name']} · ${item['Control Owner']}`}
+                        />
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="md"
+                          customClass="!m-0"
+                          label={item['Control Title'] || '—'}
+                        />
+
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <ModusWcTypography
+                              hierarchy="p"
+                              size="sm"
+                              weight="semibold"
+                              customClass="!m-0"
+                              label="Checklist"
+                            />
+                            <div>
+                              <SheetLink
+                                value={checklistLabel(item)}
+                                missingLabel="Checklist is missing"
+                                openLabel="Open checklist"
+                              />
+                            </div>
+                          </div>
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <ModusWcTypography
+                              hierarchy="p"
+                              size="sm"
+                              weight="semibold"
+                              customClass="!m-0"
+                              label={`Target (${quarter})`}
+                            />
+                            <div>
+                              <SheetLink
+                                value={targetSheetForQuarter(item, quarter)}
+                                missingLabel="Target sheet is missing"
+                                openLabel={
+                                  isGoogleSheetUrl(targetSheetForQuarter(item, quarter))
+                                    ? 'Open sheet'
+                                    : 'Open folder'
+                                }
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div>
+                          {blockReason ? (
+                            <ModusWcBadge color="warning" size="sm">
+                              <span className="inline-flex items-center gap-1">
+                                <ModusWcIcon
+                                  name="warning-circle"
+                                  version="2.0"
+                                  size="xs"
+                                  decorative
+                                />
+                                <span>{blockReason}</span>
+                              </span>
+                            </ModusWcBadge>
+                          ) : (
+                            <ModusWcTypography
+                              hierarchy="p"
+                              size="sm"
+                              customClass="surface-muted !m-0"
+                              label={`Ready for ${quarter}`}
+                            />
+                          )}
+                        </div>
+                      </div>
+
+                      <div slot="actions" className="modus-wc-justify-end flex w-full flex-wrap gap-2">
+                        <ModusWcButton
+                          variant="outlined"
+                          color="tertiary"
+                          size="sm"
+                          aria-label={`View details for ${item['Control ID']}`}
+                          onButtonClick={() => onSelectControl?.(item)}
+                        >
+                          View details
+                        </ModusWcButton>
                         <ModusWcButton
                           variant="filled"
                           color="primary"
                           size="sm"
-                          customClass="run-checklist-btn cta-sheen ripple-host"
                           disabled={!readiness.canRun}
                           aria-label={`Run checklist for ${item['Control ID']}`}
                           onButtonClick={() => openChecklist(item)}
                         >
-                          <ModusWcIcon name="check_circle" size="xs" decorative />
-                          Run Checklist
+                          <ModusWcIcon name="clipboard-check" version="2.0" size="xs" decorative />
+                          <span>Run checklist</span>
                         </ModusWcButton>
-                      </span>
-                    </div>
+                      </div>
+                    </ModusWcCard>
                   </motion.li>
                 );
-              })
-            )}
-          </AnimatePresence>
-        </motion.ul>
-      </section>
+              })}
+            </AnimatePresence>
+          </motion.ul>
+        </div>
+      </ModusWcCard>
 
-      <AnimatePresence>
-        {assistOpen ? (
-          <motion.div
-            key="assist-rail"
-            className="checklist-assist-slot"
-            initial={reduceMotion ? false : { opacity: 0, x: 36 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 36 }}
-            transition={
-              reduceMotion ? { duration: 0.12 } : drawerSpring
-            }
-          >
-            <AssistPanel
-              open={assistOpen}
-              control={auditControl}
-              initialQuarter={quarter}
-              autoStart
-              onClose={() => setAssistOpen(false)}
-              onChecklistResult={onChecklistResult}
-            />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      <AssistPanel
+        open={assistOpen}
+        control={auditControl}
+        initialQuarter={quarter}
+        autoStart
+        onClose={() => setAssistOpen(false)}
+        onChecklistResult={onChecklistResult}
+      />
     </div>
   );
 }

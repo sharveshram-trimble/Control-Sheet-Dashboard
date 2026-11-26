@@ -1,0 +1,73 @@
+/*
+  Shared helpers for screen surfaces built from Modus components.
+  Unlayered on purpose: Modus rules are unlayered and beat anything inside Tailwind's @layer.
+*/
+
+/*
+  Soften light mode: Modus modern light uses pure #fff for the page canvas, which reads as
+  glare on large dashboards. Keep tokens otherwise; only lift the page off pure white.
+*/
+[data-theme='modus-modern-light'] {
+  --modus-wc-color-base-page: var(--modus-wc-color-gray-light);
+}
+
+/*
+  Status badges: DaisyUI .modus-wc-badge-sm uses height/line-height 1rem. In a narrow table
+  cell the label wraps and the second line is crushed into the first. Force a single line
+  and let height follow content.
+*/
+modus-wc-badge.status-badge .modus-wc-badge,
+modus-wc-table modus-wc-badge .modus-wc-badge {
+  align-items: center;
+  height: auto;
+  max-height: none;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* Hide slotted content that must stay mounted (React must not remove nodes inside Modus hosts). */
+.surface-hidden {
+  display: none !important;
+}
+
+/* Modus base styles restore list markers (unlayered), so Tailwind's list-none cannot win. */
+.surface-list,
+.surface-list > li {
+  list-style: none;
+}
+
+.surface-list {
+  margin: 0;
+  padding: 0;
+}
+
+/* Native links that live in body copy (external Drive / Sheet links). */
+.surface-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--modus-wc-color-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.surface-link:hover {
+  text-decoration: underline;
+}
+
+.surface-link:focus-visible {
+  outline: 2px solid var(--modus-wc-color-highlight-blue);
+  outline-offset: 2px;
+  border-radius: var(--modus-wc-border-radius-sm, 2px);
+}
+
+.surface-muted {
+  color: var(--modus-wc-color-base-content-low-contrast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-link {
+    transition: none;
+  }
+}

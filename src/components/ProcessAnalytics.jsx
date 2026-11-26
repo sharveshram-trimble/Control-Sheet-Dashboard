@@ -1,10 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  ModusWcAvatar,
+  ModusWcBadge,
+  ModusWcButton,
+  ModusWcCard,
+  ModusWcChip,
+  ModusWcEmptyState,
+  ModusWcIcon,
+  ModusWcProgress,
   ModusWcSelect,
   ModusWcTextInput,
+  ModusWcTypography,
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
-import StatusChip from './StatusChip';
+import { resolveStatusTone } from '../utils/statusTones';
 
 const SORT_OPTIONS = [
   { label: 'Open tickets first', value: 'open' },
@@ -14,6 +23,10 @@ const SORT_OPTIONS = [
   { label: 'Name A–Z', value: 'name' },
 ];
 
+const MUTED = 'text-(--modus-wc-color-base-content-low-contrast)';
+const TITLE_ROW = 'mb-4 flex w-full min-w-0 items-center justify-between gap-3';
+const TILE_CARD = 'box-border flex h-full min-h-0 w-full flex-col';
+
 function ownerState(owner) {
   if (owner.pendingControlsCount === 0) {
     return { key: 'done', tone: 'ok', label: 'Complete' };
@@ -22,6 +35,12 @@ function ownerState(owner) {
     return { key: 'partial', tone: 'info', label: 'In progress' };
   }
   return { key: 'pending', tone: 'pending', label: 'Not started' };
+}
+
+function appState(item) {
+  if (item.completed === item.total) return { tone: 'ok', label: 'Complete' };
+  if (item.completed > 0) return { tone: 'info', label: 'In progress' };
+  return { tone: 'pending', label: 'Not started' };
 }
 
 function coverage(owner) {
@@ -65,6 +84,49 @@ function sortOwners(list, sortBy) {
   }
 }
 
+const getInitials = (name) => {
+  if (!name) return '??';
+  const parts = name.split(' ');
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.substring(0, 2).toUpperCase();
+};
+
+/** Status = icon + visible label + color. */
+function StatusBadge({ tone, label }) {
+  const meta = resolveStatusTone(tone);
+  return (
+    <ModusWcBadge className="status-badge" color={meta.color} size="sm">
+      <ModusWcIcon
+        name={meta.icon}
+        version="2.0"
+        size="xs"
+        decorative
+        customClass="me-1"
+      />
+      <span>{label || meta.label}</span>
+    </ModusWcBadge>
+  );
+}
+
+function CardTitle({ icon, title, trailing }) {
+  return (
+    <div slot="title" className={TITLE_ROW}>
+      <div className="flex min-w-0 items-center gap-2">
+        <ModusWcIcon name={icon} version="2.0" decorative />
+        <ModusWcTypography
+          hierarchy="h2"
+          size="lg"
+          weight="semibold"
+          label={title}
+        />
+      </div>
+      <ModusWcBadge color="default" size="sm">
+        <span>{trailing}</span>
+      </ModusWcBadge>
+    </div>
+  );
+}
+
 export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const [ownerSearch, setOwnerSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -76,12 +138,26 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   const accessCompleted = accessControls.filter((i) => i.isCompleted).length;
   const changeCompleted = changeControls.filter((i) => i.isCompleted).length;
 
-  const accessPct = accessControls.length
-    ? (accessCompleted / accessControls.length) * 100
-    : 0;
-  const changePct = changeControls.length
-    ? (changeCompleted / changeControls.length) * 100
-    : 0;
+  const subprocesses = [
+    {
+      id: 'access',
+      kicker: '02.05',
+      title: 'Access management',
+      completed: accessCompleted,
+      total: accessControls.length,
+      description:
+        'Periodic system access reviews across financial and infrastructure applications.',
+    },
+    {
+      id: 'change',
+      kicker: '01.04',
+      title: 'Change management',
+      completed: changeCompleted,
+      total: changeControls.length,
+      description:
+        'Monitoring and approvals of system changes deployed into production environments.',
+    },
+  ];
 
   const appMap = {};
   items.forEach((i) => {
@@ -92,11 +168,7 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
   });
 
   const appList = Object.entries(appMap)
-    .map(([app, data]) => ({
-      app,
-      ...data,
-      pct: data.total > 0 ? (data.completed / data.total) * 100 : 0,
-    }))
+    .map(([app, data]) => ({ app, ...data }))
     .sort(
       (a, b) =>
         a.completed / a.total - b.completed / b.total ||
@@ -126,6 +198,14 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
     return sortOwners(matched, sortBy);
   }, [ownerStats, ownerSearch, statusFilter, sortBy]);
 
+  const clearFilters = useCallback(() => {
+    setStatusFilter('all');
+    setOwnerSearch('');
+  }, []);
+
+  const filtersActive = statusFilter !== 'all' || ownerSearch.trim() !== '';
+  const ownersEmpty = filteredOwners.length === 0;
+
   const statusFilters = [
     { id: 'all', label: 'All', count: statusCounts.all },
     { id: 'pending', label: 'Not started', count: statusCounts.pending },
@@ -133,279 +213,307 @@ export default function ProcessAnalytics({ items, stats: _stats, ownerStats }) {
     { id: 'done', label: 'Complete', count: statusCounts.done },
   ];
 
-  const getInitials = (name) => {
-    if (!name) return '??';
-    const parts = name.split(' ');
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
+  const ownerCount =
+    filteredOwners.length !== ownerStats.length
+      ? `${filteredOwners.length} of ${ownerStats.length}`
+      : String(filteredOwners.length);
 
   return (
-    <div className="analytics-stack">
-      <div className="table-section-card analytics-panel">
-        <div className="analytics-panel-header">
-          <div>
-            <h3>
-              Owner progress ({filteredOwners.length}
-              {filteredOwners.length !== ownerStats.length
-                ? ` of ${ownerStats.length}`
-                : ''}
-              )
-            </h3>
-            <p>Filter by status, sort the grid, search owner or application.</p>
-          </div>
-        </div>
+    <div className="flex min-w-0 flex-col gap-3">
+      {/* Owner progress */}
+      <ModusWcCard bordered padding="compact">
+        <CardTitle icon="users-three" title="Owner progress" trailing={ownerCount} />
 
-        <div className="analytics-toolbar">
-          <div
-            className="analytics-filter-row"
-            role="tablist"
-            aria-label="Owner status filter"
-          >
-            {statusFilters.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === f.id}
-                className={`checklist-filter-chip${statusFilter === f.id ? ' is-active' : ''}`}
-                onClick={() => setStatusFilter(f.id)}
-              >
-                {f.label}
-                <span className="checklist-filter-count">{f.count}</span>
-              </button>
-            ))}
-          </div>
+        <div className="flex min-w-0 flex-col gap-3">
+          <ModusWcTypography
+            hierarchy="p"
+            size="sm"
+            customClass={MUTED}
+            label="Filter by status, sort the grid, search owner or application."
+          />
 
-          <div className="analytics-toolbar-actions">
-            <ModusWcSelect
-              size="sm"
-              bordered
-              label=""
-              aria-label="Sort owners"
-              value={sortBy}
-              options={SORT_OPTIONS}
-              customClass="analytics-sort-select"
-              onInputChange={(e) =>
-                setSortBy(readInputString(e) || 'open')
-              }
-            />
-            <ModusWcTextInput
-              size="sm"
-              bordered
-              includeSearch
-              includeClear
-              type="search"
-              placeholder="Search owner or application…"
-              value={ownerSearch}
-              aria-label="Search owners"
-              customClass="analytics-search-input"
-              onInputChange={(e) => setOwnerSearch(readInputString(e))}
-            />
-          </div>
-        </div>
-
-        {filteredOwners.length === 0 ? (
-          <div className="owner-empty-state">
-            <p>No owners match this filter or search.</p>
-            <button
-              type="button"
-              className="chip-text-button"
-              onClick={() => {
-                setStatusFilter('all');
-                setOwnerSearch('');
-              }}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <div
+              className="flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Owner status filter"
             >
-              Clear filters
-            </button>
+              {statusFilters.map((f) => (
+                <ModusWcChip
+                  key={f.id}
+                  size="sm"
+                  variant={statusFilter === f.id ? 'filled' : 'outline'}
+                  active={statusFilter === f.id}
+                  label={`${f.label} (${f.count})`}
+                  onChipClick={() => setStatusFilter(f.id)}
+                />
+              ))}
+            </div>
+
+            <div className="min-w-0 sm:w-56">
+              <ModusWcSelect
+                size="sm"
+                bordered
+                label=""
+                aria-label="Sort owners"
+                value={sortBy}
+                options={SORT_OPTIONS}
+                onInputChange={(e) => setSortBy(readInputString(e) || 'open')}
+              />
+            </div>
+
+            <div className="w-full min-w-0 sm:w-72">
+              <ModusWcTextInput
+                size="sm"
+                bordered
+                includeSearch
+                includeClear
+                type="search"
+                placeholder="Search owner or application…"
+                value={ownerSearch}
+                aria-label="Search owners"
+                onInputChange={(e) => setOwnerSearch(readInputString(e))}
+              />
+            </div>
+
+            <div hidden={!filtersActive}>
+              <ModusWcButton
+                size="sm"
+                color="tertiary"
+                variant="borderless"
+                onButtonClick={clearFilters}
+              >
+                <span>Clear filters</span>
+              </ModusWcButton>
+            </div>
           </div>
-        ) : (
-          <div className="owner-progress-grid">
+
+          {/* Both branches stay mounted; `hidden` toggles them (no root swaps inside the card). */}
+          <div hidden={!ownersEmpty}>
+            <ModusWcEmptyState
+              variant="compact"
+              illustration="add_user"
+              heading="No owners found"
+              subtitle="No owners match this filter or search."
+              actionLabel="Clear filters"
+              onActionClick={clearFilters}
+            />
+          </div>
+
+          <div
+            className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
+            hidden={ownersEmpty}
+          >
             {filteredOwners.map((owner) => {
               const state = ownerState(owner);
               const ticketed = owner.completedControlsCount;
               const total = owner.totalControls;
-              const barPct = total > 0 ? (ticketed / total) * 100 : 0;
 
               return (
-                <div
-                  key={owner.name}
-                  className={`owner-progress-card ${state.key}`}
-                >
-                  <div className="owner-card-top">
-                    <div className="owner-profile">
-                      <div
-                        className={`owner-avatar ${
-                          state.key === 'done'
-                            ? 'completed'
-                            : state.key === 'pending'
-                              ? 'pending'
-                              : ''
-                        }`}
-                      >
-                        {getInitials(owner.name)}
-                      </div>
-                      <div className="owner-details">
-                        <h4>{owner.name}</h4>
-                        <div className="owner-app-meta">
-                          {owner.apps.join(', ')}
+                <div key={owner.name} className="h-full min-h-0 min-w-0">
+                  <ModusWcCard
+                    bordered={false}
+                    padding="compact"
+                    className={TILE_CARD}
+                    customClass={TILE_CARD}
+                  >
+                    <div
+                      slot="title"
+                      className="mb-2 flex w-full min-w-0 items-center justify-between gap-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <ModusWcAvatar
+                          size="sm"
+                          imgSrc=""
+                          alt={owner.name}
+                          initials={getInitials(owner.name)}
+                        />
+                        <div className="min-w-0">
+                          <ModusWcTypography
+                            hierarchy="h3"
+                            size="md"
+                            weight="semibold"
+                            label={owner.name}
+                          />
+                          <ModusWcTypography
+                            hierarchy="p"
+                            size="xs"
+                            customClass={`${MUTED} truncate`}
+                            label={owner.apps.join(', ')}
+                          />
                         </div>
                       </div>
+                      <StatusBadge tone={state.tone} label={state.label} />
                     </div>
 
-                    <StatusChip tone={state.tone} label={state.label} compact />
-                  </div>
-
-                  <div className="owner-progress-meter">
-                    <div className="progress-meta-row">
-                      <span>
-                        <strong className="num">{ticketed}</strong> of{' '}
-                        <strong className="num">{total}</strong> ticketed
-                      </span>
-                      {owner.pendingControlsCount > 0 ? (
-                        <span className="progress-meta-pending">
-                          {owner.pendingControlsCount} open
-                        </span>
-                      ) : (
-                        <span className="progress-meta-done">All clear</span>
-                      )}
-                    </div>
-                    <div
-                      className="progress-track"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={total}
-                      aria-valuenow={ticketed}
-                      aria-label={`${ticketed} of ${total} controls ticketed for ${owner.name}`}
-                    >
-                      <div
-                        className={`progress-fill ${
-                          state.key === 'done'
-                            ? 'success'
-                            : state.key === 'partial'
-                              ? 'primary'
-                              : 'idle'
-                        }`}
-                        style={{ width: `${barPct}%` }}
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="sm"
+                          customClass="tabular-nums"
+                          label={`${ticketed} of ${total} ticketed`}
+                        />
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="sm"
+                          customClass={MUTED}
+                          label={
+                            owner.pendingControlsCount > 0
+                              ? `${owner.pendingControlsCount} open`
+                              : 'All clear'
+                          }
+                        />
+                      </div>
+                      <ModusWcProgress
+                        value={ticketed}
+                        max={total > 0 ? total : 1}
+                        aria-label={`${ticketed} of ${total} controls ticketed for ${owner.name}`}
                       />
-                    </div>
-                  </div>
 
-                  <ul className="owner-control-rows">
-                    {owner.controls.map((c) => {
-                      const done = c.isCompleted;
-                      return (
-                        <li
-                          key={c.id}
-                          className={`owner-control-row ${done ? 'is-done' : 'is-open'}`}
-                        >
-                          <span className="owner-control-id">
-                            {c['Control ID']}
-                          </span>
-                          <span className="owner-control-status">
-                            {done
-                              ? c['TICKET NUMBER'] || 'Ticketed'
-                              : 'Missing ticket'}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                      <ul className="surface-list m-0 flex flex-col gap-1 p-0">
+                        {owner.controls.map((c) => (
+                          <li
+                            key={c.id}
+                            className="flex min-w-0 items-center justify-between gap-2"
+                          >
+                            <ModusWcTypography
+                              hierarchy="p"
+                              size="sm"
+                              weight="semibold"
+                              customClass="tabular-nums"
+                              label={c['Control ID']}
+                            />
+                            {c.isCompleted ? (
+                              <ModusWcTypography
+                                hierarchy="p"
+                                size="sm"
+                                customClass={MUTED}
+                                label={c['TICKET NUMBER'] || 'Ticketed'}
+                              />
+                            ) : (
+                              <StatusBadge tone="warn" label="Missing ticket" />
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </ModusWcCard>
                 </div>
               );
             })}
           </div>
-        )}
-      </div>
-
-      <div className="subprocess-grid">
-        <div className="subprocess-tile">
-          <p className="subprocess-kicker">02.05</p>
-          <h3>Access Management</h3>
-          <div className="subprocess-progress">
-            <div className="progress-meta-row">
-              <span>
-                <strong className="num">{accessCompleted}</strong> of{' '}
-                <strong className="num">{accessControls.length}</strong> ticketed
-              </span>
-            </div>
-            <div className="progress-track">
-              <div
-                className="progress-fill primary"
-                style={{ width: `${accessPct}%` }}
-              />
-            </div>
-          </div>
-          <p className="subprocess-desc">
-            Periodic system access reviews across financial and infrastructure
-            applications.
-          </p>
         </div>
+      </ModusWcCard>
 
-        <div className="subprocess-tile">
-          <p className="subprocess-kicker">01.04</p>
-          <h3>Change Management</h3>
-          <div className="subprocess-progress">
-            <div className="progress-meta-row">
-              <span>
-                <strong className="num">{changeCompleted}</strong> of{' '}
-                <strong className="num">{changeControls.length}</strong> ticketed
-              </span>
-            </div>
-            <div className="progress-track">
-              <div
-                className="progress-fill primary"
-                style={{ width: `${changePct}%` }}
-              />
-            </div>
-          </div>
-          <p className="subprocess-desc">
-            Monitoring and approvals of system changes deployed into production
-            environments.
-          </p>
-        </div>
-      </div>
-
-      <div className="table-section-card analytics-panel">
-        <div className="analytics-panel-header">
-          <div>
-            <h3>Applications ({appList.length})</h3>
-            <p>Ticket coverage by application — least covered first.</p>
-          </div>
-        </div>
-
-        <div className="app-breakdown-grid">
-          {appList.map((item) => {
-            const done = item.completed === item.total;
-            const started = item.completed > 0;
-            return (
-              <div
-                key={item.app}
-                className={`app-breakdown-card ${
-                  done ? 'done' : started ? 'partial' : 'idle'
-                }`}
-              >
-                <div className="app-breakdown-top">
-                  <span className="app-name">{item.app}</span>
-                  <span className="app-breakdown-count num">
-                    {item.completed}/{item.total}
-                  </span>
-                </div>
-                <div className="progress-track thin">
-                  <div
-                    className={`progress-fill ${done ? 'success' : started ? 'primary' : 'idle'}`}
-                    style={{ width: `${item.pct}%` }}
-                  />
-                </div>
-                <div className="app-breakdown-meta">
-                  <span>{item.completed} ticketed</span>
-                  <span>{item.total - item.completed} pending</span>
-                </div>
+      {/* Sub-process coverage (peer tiles) */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {subprocesses.map((sp) => (
+          <div key={sp.id} className="h-full min-h-0 min-w-0">
+            <ModusWcCard
+              bordered
+              padding="compact"
+              className={TILE_CARD}
+              customClass={TILE_CARD}
+            >
+              <CardTitle icon="folder" title={sp.title} trailing={sp.kicker} />
+              <div className="flex min-w-0 flex-col gap-2">
+                <ModusWcTypography
+                  hierarchy="p"
+                  size="sm"
+                  customClass="tabular-nums"
+                  label={`${sp.completed} of ${sp.total} ticketed`}
+                />
+                <ModusWcProgress
+                  value={sp.completed}
+                  max={sp.total > 0 ? sp.total : 1}
+                  aria-label={`${sp.completed} of ${sp.total} ${sp.title} controls ticketed`}
+                />
+                <ModusWcTypography
+                  hierarchy="p"
+                  size="sm"
+                  customClass={MUTED}
+                  label={sp.description}
+                />
               </div>
-            );
-          })}
-        </div>
+            </ModusWcCard>
+          </div>
+        ))}
       </div>
+
+      {/* Applications */}
+      <ModusWcCard bordered padding="compact">
+        <CardTitle
+          icon="squares-four"
+          title="Applications"
+          trailing={String(appList.length)}
+        />
+
+        <div className="flex min-w-0 flex-col gap-3">
+          <ModusWcTypography
+            hierarchy="p"
+            size="sm"
+            customClass={MUTED}
+            label="Ticket coverage by application, least covered first."
+          />
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {appList.map((item) => {
+              const state = appState(item);
+              return (
+                <div key={item.app} className="h-full min-h-0 min-w-0">
+                  <ModusWcCard
+                    bordered={false}
+                    padding="compact"
+                    className={TILE_CARD}
+                    customClass={TILE_CARD}
+                  >
+                    <div
+                      slot="title"
+                      className="mb-2 flex w-full min-w-0 items-center justify-between gap-2"
+                    >
+                      <ModusWcTypography
+                        hierarchy="h3"
+                        size="md"
+                        weight="semibold"
+                        label={item.app}
+                      />
+                      <StatusBadge tone={state.tone} label={state.label} />
+                    </div>
+                    <div className="flex min-w-0 flex-col gap-2">
+                      <ModusWcTypography
+                        hierarchy="p"
+                        size="sm"
+                        customClass="tabular-nums"
+                        label={`${item.completed}/${item.total} controls`}
+                      />
+                      <ModusWcProgress
+                        value={item.completed}
+                        max={item.total > 0 ? item.total : 1}
+                        aria-label={`${item.completed} of ${item.total} controls ticketed for ${item.app}`}
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="xs"
+                          customClass={MUTED}
+                          label={`${item.completed} ticketed`}
+                        />
+                        <ModusWcTypography
+                          hierarchy="p"
+                          size="xs"
+                          customClass={MUTED}
+                          label={`${item.total - item.completed} pending`}
+                        />
+                      </div>
+                    </div>
+                  </ModusWcCard>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </ModusWcCard>
     </div>
   );
 }

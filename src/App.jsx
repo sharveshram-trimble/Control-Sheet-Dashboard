@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ModusWcAlert, ModusWcToast } from '@trimble-oss/moduswebcomponents-react';
-import Header from './components/Header';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { motion, useReducedMotion } from 'framer-motion';
+import {
+  ModusWcAlert,
+  ModusWcButton,
+  ModusWcToast,
+  ModusWcTypography,
+} from '@trimble-oss/moduswebcomponents-react';
 import HeroProgress from './components/HeroProgress';
-import TwoColumnOwners from './components/TwoColumnOwners';
-import ControlSheetTable from './components/ControlSheetTable';
-import ProcessAnalytics from './components/ProcessAnalytics';
-import ChecklistView from './components/ChecklistView';
 import DetailModal from './components/DetailModal';
 import SurfaceSkeleton from './components/SurfaceSkeleton';
 import { takePendingChecklistRun } from './assist/pendingChecklistRun';
@@ -25,13 +26,19 @@ const TOAST_META = {
   info: { variant: 'info', title: 'Info' },
 };
 
+/**
+ * Data provider for the authenticated app. Owns the live-sync data, toasts and the detail modal,
+ * and renders the active screen through <Outlet context={…} />. Screens read the shared state
+ * with `useOutletContext()` (see src/routes/).
+ */
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   // Empty until the n8n production webhook responds (no executions-API bootstrap).
   // DEV ?uiPreview=1 seeds sample rows so UI surfaces can be reviewed offline.
   const [items, setItems] = useState(() =>
     isUiPreview ? initialWorkflowData : []
   );
-  const [activeTab, setActiveTab] = useState('overview');
   const [selectedControl, setSelectedControl] = useState(null);
   const [checklistFocusControl, setChecklistFocusControl] = useState(null);
   const [toasts, setToasts] = useState([]);
@@ -48,10 +55,13 @@ export default function App() {
     itemsLengthRef.current = items.length;
   }, [items.length]);
 
-  const handleRunChecklist = useCallback((control) => {
-    setChecklistFocusControl(control);
-    setActiveTab('checklist');
-  }, []);
+  const handleRunChecklist = useCallback(
+    (control) => {
+      setChecklistFocusControl(control);
+      navigate({ pathname: '/checklist', search: window.location.search });
+    },
+    [navigate]
+  );
 
   const handleChecklistFocusHandled = useCallback(() => {
     setChecklistFocusControl(null);
@@ -216,8 +226,8 @@ export default function App() {
     );
     if (!match) return;
     setChecklistFocusControl(match);
-    setActiveTab('checklist');
-  }, [items]);
+    navigate({ pathname: '/checklist', search: window.location.search });
+  }, [items, navigate]);
 
   const { stats, ownerStats } = useMemo(() => {
     const totalControls = items.length;
@@ -314,126 +324,133 @@ export default function App() {
   const showSyncError =
     !isUiPreview && items.length === 0 && syncState === 'error';
   const reduceMotion = useReducedMotion();
+  const isChecklistRoute = location.pathname.startsWith('/checklist');
 
+  const sendIncompleteMail = useCallback(
+    async (payload) => {
+      try {
+        const res = await fetch('/api/send-incomplete-mail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
+          showToast(
+            json.message || json.error || 'Failed to send reminder email',
+            'error'
+          );
+          return;
+        }
+        const kind =
+          payload.mailType === 'follow_up'
+            ? 'Follow-up'
+            : payload.mailType === 'draft'
+              ? 'Draft'
+              : 'Reminder';
+        showToast(
+          json.message ||
+            `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
+          'success'
+        );
+      } catch (err) {
+        showToast(err.message || 'Failed to reach mail workflow', 'error');
+      }
+    },
+    [showToast]
+  );
+
+  // Shared with every screen via useOutletContext() (src/routes/).
+  const screenContext = {
+    items,
+    stats,
+    ownerStats,
+    showToast,
+    onSelectControl: setSelectedControl,
+    onRunChecklist: handleRunChecklist,
+    onSendIncompleteMail: sendIncompleteMail,
+    checklistFocusControl,
+    onChecklistFocusHandled: handleChecklistFocusHandled,
+    onChecklistResult: handleChecklistResult,
+  };
+
+  const syncLabel =
+    syncState === 'loading'
+      ? 'Syncing…'
+      : syncState === 'error'
+        ? syncError || 'Sync failed'
+        : lastSyncedAt
+          ? `Synced ${lastSyncedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : 'Waiting for sheet';
+
+  // The shell owns <main> and the capped column; this is only the page body.
   return (
-    <div className={`app-container${successPulse ? ' success-pulse-host' : ''}`}>
+    <div
+      className={`flex min-w-0 flex-col gap-5${successPulse ? ' success-pulse-host' : ''}`}
+    >
       {successPulse ? (
         <span className="success-pulse success-pulse--global" aria-hidden="true" />
       ) : null}
-      <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        syncState={syncState}
-        lastSyncedAt={lastSyncedAt}
-        syncError={syncError}
-        onRetrySync={() => fetchLiveData(true)}
-      />
 
-      <main className="main-content">
-        {showSkeleton ? (
-          <SurfaceSkeleton />
-        ) : showSyncError ? (
-          <div className="surface-error" role="alert">
-            <h2>Control sheet unavailable</h2>
-            <p>{syncError || 'Could not load live controls.'}</p>
-            <button
-              type="button"
-              className="surface-error-retry"
-              onClick={() => fetchLiveData(true)}
-            >
-              Retry sync
-            </button>
-          </div>
-        ) : (
-          <>
-            {activeTab !== 'checklist' ? (
-              <HeroProgress
-                stats={stats}
-                onSelectControl={setSelectedControl}
-              />
-            ) : null}
+      <div
+        className="flex min-w-0 items-center justify-end gap-2"
+        role="status"
+        aria-live="polite"
+      >
+        <ModusWcTypography
+          hierarchy="p"
+          size="sm"
+          label={syncLabel}
+          customClass={
+            syncState === 'error'
+              ? 'text-[var(--modus-wc-color-error)]'
+              : 'text-[var(--modus-wc-color-base-content-low-contrast)]'
+          }
+        />
+        <span className={syncState === 'error' ? 'inline-flex' : 'hidden'}>
+          <ModusWcButton
+            color="tertiary"
+            variant="outlined"
+            size="sm"
+            aria-label="Retry sheet sync"
+            onButtonClick={() => fetchLiveData(true)}
+          >
+            <span>Retry</span>
+          </ModusWcButton>
+        </span>
+      </div>
 
-            <AnimatePresence mode="sync">
-              <motion.div
-                key={activeTab}
-                className="tab-panel"
-                {...fadeUp(reduceMotion, 10)}
-                transition={{ duration: duration.ui, ease: easeBrand }}
-              >
-                {activeTab === 'overview' && (
-                  <TwoColumnOwners
-                    ownerStats={ownerStats}
-                    onSelectControl={setSelectedControl}
-                    onRunChecklist={handleRunChecklist}
-                    showToast={showToast}
-                    onSendIncompleteMail={async (payload) => {
-                      try {
-                        const res = await fetch('/api/send-incomplete-mail', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(payload),
-                        });
-                        const json = await res.json().catch(() => ({}));
-                        if (!res.ok || json.success === false) {
-                          showToast(
-                            json.message ||
-                              json.error ||
-                              'Failed to send reminder email',
-                            'error'
-                          );
-                          return;
-                        }
-                        const kind =
-                          payload.mailType === 'follow_up'
-                            ? 'Follow-up'
-                            : payload.mailType === 'draft'
-                              ? 'Draft'
-                              : 'Reminder';
-                        showToast(
-                          json.message ||
-                            `${kind} mail queued for ${payload.ownerName} (${payload.incompleteCount} controls)`,
-                          'success'
-                        );
-                      } catch (err) {
-                        showToast(
-                          err.message || 'Failed to reach mail workflow',
-                          'error'
-                        );
-                      }
-                    }}
-                  />
-                )}
+      {showSkeleton ? (
+        <SurfaceSkeleton />
+      ) : showSyncError ? (
+        <div className="surface-error" role="alert">
+          <h2>Control sheet unavailable</h2>
+          <p>{syncError || 'Could not load live controls.'}</p>
+          <ModusWcButton
+            color="primary"
+            variant="filled"
+            size="sm"
+            onButtonClick={() => fetchLiveData(true)}
+          >
+            <span>Retry</span>
+          </ModusWcButton>
+        </div>
+      ) : (
+        <>
+          {!isChecklistRoute ? (
+            <HeroProgress stats={stats} onSelectControl={setSelectedControl} />
+          ) : null}
 
-                {activeTab === 'matrix' && (
-                  <ControlSheetTable
-                    items={items}
-                    onSelectControl={setSelectedControl}
-                    showToast={showToast}
-                  />
-                )}
-
-                {activeTab === 'progress' && (
-                  <ProcessAnalytics
-                    items={items}
-                    stats={stats}
-                    ownerStats={ownerStats}
-                  />
-                )}
-
-                {activeTab === 'checklist' && (
-                  <ChecklistView
-                    items={items}
-                    onSelectControl={setSelectedControl}
-                    focusControl={checklistFocusControl}
-                    onFocusControlHandled={handleChecklistFocusHandled}
-                    onChecklistResult={handleChecklistResult}
-                  />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </>
-        )}
-      </main>
+          <motion.div
+            key={location.pathname}
+            className="tab-panel"
+            {...fadeUp(reduceMotion, 10)}
+            transition={{ duration: duration.ui, ease: easeBrand }}
+          >
+            <Outlet context={screenContext} />
+          </motion.div>
+        </>
+      )}
 
       <DetailModal
         control={selectedControl}
@@ -458,7 +475,7 @@ export default function App() {
       <footer className="app-footer">
         <div className="footer-content">
           <div>
-            <strong>Control Sheet Dashboard</strong> • Real-time completion tracking
+            <strong>Control sheet dashboard</strong> • Real-time completion tracking
             by ticket verification
           </div>
           <div className="footer-links">

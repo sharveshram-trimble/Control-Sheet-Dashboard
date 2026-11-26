@@ -1,22 +1,27 @@
 import React from 'react';
-import { ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
+import { ModusWcBadge, ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
+import { resolveStatusTone } from '../utils/statusTones';
 
-const MAP = {
-  ok: { className: 'status-chip status-chip--ok', icon: 'check_circle', label: 'Ticketed' },
-  warn: { className: 'status-chip status-chip--warn', icon: 'time', label: 'Missing ticket' },
-  bad: { className: 'status-chip status-chip--bad', icon: 'warning', label: 'Failed' },
-  info: { className: 'status-chip status-chip--info', icon: 'info', label: 'In progress' },
-  pending: { className: 'status-chip status-chip--pending', icon: 'time', label: 'Not started' },
-  idle: { className: 'status-chip status-chip--pending', icon: 'time', label: 'Not started' },
-};
-
-/** Status always = icon + visible label + color (never hue-only). */
+/**
+ * Thin wrapper over ModusWcBadge so older call sites keep their `tone` / `label` / `compact`
+ * props. New code should render ModusWcBadge directly. Status is icon + label + color.
+ */
 export default function StatusChip({ tone = 'pending', label, compact = false }) {
-  const meta = MAP[tone] || MAP.pending;
+  const meta = resolveStatusTone(tone);
   return (
-    <span className={`${meta.className}${compact ? ' status-chip--compact' : ''}`}>
-      <ModusWcIcon name={meta.icon} size="xs" decorative />
-      <span className="status-chip-label">{label || meta.label}</span>
-    </span>
+    <ModusWcBadge
+      className="status-badge"
+      color={meta.color}
+      size={compact ? 'sm' : 'md'}
+    >
+      <ModusWcIcon
+        name={meta.icon}
+        version="2.0"
+        size="xs"
+        decorative
+        customClass="me-1"
+      />
+      <span>{label || meta.label}</span>
+    </ModusWcBadge>
   );
 }

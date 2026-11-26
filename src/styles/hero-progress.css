@@ -1,0 +1,47 @@
+/* Control sheet status hero: radial progress ring (SVG) + KPI tint classes. */
+
+.hero-radial {
+  position: relative;
+  width: 8.5rem;
+  height: 8.5rem;
+  flex-shrink: 0;
+}
+
+.hero-radial-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.hero-radial-bg,
+.hero-radial-bar {
+  fill: none;
+  stroke-width: 9;
+}
+
+.hero-radial-bg {
+  stroke: var(--modus-wc-color-base-300);
+}
+
+.hero-radial-bar {
+  stroke: var(--modus-wc-color-success);
+  stroke-linecap: round;
+}
+
+.hero-radial-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-metric--success {
+  color: var(--modus-wc-color-success);
+}
+
+/* Raw warning amber is low contrast on light surfaces; mix toward the text color. */
+.hero-metric--warning {
+  color: color-mix(in srgb, var(--modus-wc-color-warning) 55%, var(--modus-wc-color-base-content));
+}

@@ -1,22 +1,30 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ModusWcButton,
+  ModusWcCard,
+  ModusWcChip,
+  ModusWcEmptyState,
   ModusWcIcon,
+  ModusWcTable,
   ModusWcTextInput,
+  ModusWcTypography,
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
-import {
-  STAGGER_CAP,
-  chipPop,
-  staggerContainer,
-  staggerItem,
-} from '../motion/presets';
-import StatusChip from './StatusChip';
+import { createStatusBadgeElement } from '../utils/statusTones';
+
+const PROCESS_FILTERS = [
+  { id: 'all', label: 'All processes' },
+  { id: 'Access Management', label: 'Access (02.05)' },
+  { id: 'Change Management', label: 'Change (01.04)' },
+];
+
+const MUTED = 'text-(--modus-wc-color-base-content-low-contrast)';
+
+const controlId = (item) => String(item.id ?? item['Control ID'] ?? '');
 
 export default function ControlSheetTable({ items, showToast, onSelectControl }) {
-  const reduceMotion = useReducedMotion();
   const searchRef = useRef(null);
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [processFilter, setProcessFilter] = useState('all');
@@ -25,6 +33,7 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
   const completedCount = items.filter((i) => i.isCompleted).length;
   const pendingCount = items.length - completedCount;
 
+  // "/" focuses the search field (unless the user is already typing somewhere).
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -66,6 +75,110 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
     });
   }, [items, search, statusFilter, processFilter]);
 
+  const filtersActive =
+    statusFilter !== 'all' || processFilter !== 'all' || search.trim() !== '';
+  const isEmpty = filteredItems.length === 0;
+
+  const clearFilters = useCallback(() => {
+    setStatusFilter('all');
+    setProcessFilter('all');
+    setSearch('');
+  }, []);
+
+  // Flat, dot-free keys so sorting and cell renderers never depend on the sheet's column names.
+  const rows = useMemo(
+    () =>
+      filteredItems.map((item) => ({
+        id: controlId(item),
+        status: item.isCompleted ? 'Ticketed' : 'Missing ticket',
+        application: item['Application Name'] || '',
+        controlId: item['Control ID'] || '',
+        subProcess: item['Sub-Process'] || '',
+        title: item['Control Title'] || '',
+        owner: item['Control Owner'] || '',
+        ticket: item['TICKET NUMBER'] || '',
+      })),
+    [filteredItems]
+  );
+
+  // The table hands back the row it was given; resolve the full control from the id so
+  // onSelectControl always receives the original item.
+  const itemsById = useRef(new Map());
+  const onSelectRef = useRef(onSelectControl);
+  useEffect(() => {
+    itemsById.current = new Map(items.map((item) => [controlId(item), item]));
+    onSelectRef.current = onSelectControl;
+  }, [items, onSelectControl]);
+
+  const openControl = useCallback((id) => {
+    const item = itemsById.current.get(String(id));
+    if (!item) return;
+    setSelectedId(String(id));
+    onSelectRef.current?.(item);
+  }, []);
+
+  // Rows aren't keyboard-reachable, so each row gets a named Open button that does what a
+  // row click does.
+  const columns = useMemo(
+    () => [
+      {
+        id: 'status',
+        header: 'Status',
+        accessor: 'status',
+        width: '11.5rem',
+        sortable: true,
+        cellRenderer: (value) =>
+          createStatusBadgeElement(value === 'Ticketed' ? 'ok' : 'warn', value),
+      },
+      { id: 'application', header: 'Application', accessor: 'application', sortable: true },
+      { id: 'controlId', header: 'Control ID', accessor: 'controlId', sortable: true },
+      { id: 'subProcess', header: 'Sub-process', accessor: 'subProcess', sortable: true },
+      { id: 'title', header: 'Control title', accessor: 'title', sortable: true },
+      { id: 'owner', header: 'Control owner', accessor: 'owner', sortable: true },
+      {
+        id: 'ticket',
+        header: 'Ticket number',
+        accessor: 'ticket',
+        sortable: true,
+        cellRenderer: (value) =>
+          value ? String(value) : createStatusBadgeElement('warn', 'Missing'),
+      },
+      {
+        id: 'actions',
+        header: 'Actions',
+        accessor: 'id',
+        width: '7rem',
+        sortable: false,
+        cellRenderer: (value, row) => {
+          const button = document.createElement('modus-wc-button');
+          button.color = 'tertiary';
+          button.variant = 'outlined';
+          button.size = 'sm';
+          button.buttonAriaLabel = `Open ${row?.controlId || value}`;
+          button.textContent = 'Open';
+          // Keep the click from also reaching the row (the table would open the control twice).
+          button.addEventListener('click', (e) => e.stopPropagation());
+          button.addEventListener('buttonClick', () => openControl(value));
+          return button;
+        },
+      },
+    ],
+    [openControl]
+  );
+
+  const handleRowClick = useCallback(
+    (e) => {
+      const id = e.detail?.row?.id;
+      if (id != null) openControl(id);
+    },
+    [openControl]
+  );
+
+  const handleSelectionChange = useCallback((e) => {
+    const ids = e.detail?.selectedRowIds ?? [];
+    setSelectedId(ids.length ? String(ids[0]) : null);
+  }, []);
+
   const handleExportCSV = () => {
     if (!filteredItems.length) return;
     const headers = [
@@ -79,7 +192,7 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
       'Status',
     ];
 
-    const rows = filteredItems.map((i) => [
+    const rowsCsv = filteredItems.map((i) => [
       `"${i.row_number || ''}"`,
       `"${(i['Application Name'] || '').replace(/"/g, '""')}"`,
       `"${(i['Sub-Process'] || '').replace(/"/g, '""')}"`,
@@ -92,7 +205,7 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
 
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+      [headers.join(','), ...rowsCsv.map((e) => e.join(','))].join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
@@ -106,83 +219,35 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
     if (showToast) showToast('Exported control sheet matrix to CSV!', 'success');
   };
 
-  const filters = [
-    { id: 'all', label: `All (${items.length})`, active: statusFilter === 'all', on: () => setStatusFilter('all') },
-    {
-      id: 'completed',
-      label: `Ticketed (${completedCount})`,
-      active: statusFilter === 'completed',
-      on: () => setStatusFilter('completed'),
-    },
-    {
-      id: 'pending',
-      label: `Pending (${pendingCount})`,
-      active: statusFilter === 'pending',
-      on: () => setStatusFilter('pending'),
-    },
+  const statusFilters = [
+    { id: 'all', label: `All (${items.length})` },
+    { id: 'completed', label: `Ticketed (${completedCount})` },
+    { id: 'pending', label: `Pending (${pendingCount})` },
   ];
 
-  const listVariants = staggerContainer(reduceMotion);
-  const pop = chipPop(reduceMotion);
-
   return (
-    <div className="table-section-card">
-      <div className="table-controls-bar">
-        <div className="table-controls-heading">
-          <h2>Control sheet matrix</h2>
-          <p>
-            {filteredItems.length} of {items.length} controls shown · press{' '}
-            <kbd>/</kbd> to search
-          </p>
-        </div>
-        <div className="table-filters-group">
-          <AnimatePresence mode="popLayout" initial={false}>
-            {filters.map((f) => (
-              <motion.span key={f.id} layout {...pop}>
-                <ModusWcButton
-                  color={f.active ? 'primary' : 'tertiary'}
-                  variant={f.active ? 'filled' : 'outlined'}
-                  size="sm"
-                  onButtonClick={f.on}
-                >
-                  {f.label}
-                </ModusWcButton>
-              </motion.span>
-            ))}
-          </AnimatePresence>
+    <ModusWcCard bordered padding="compact">
+      <div slot="title" className="mb-4 flex w-full min-w-0 items-center justify-start gap-2">
+        <ModusWcIcon name="clipboard-check" version="2.0" decorative />
+        <ModusWcTypography
+          hierarchy="h2"
+          size="lg"
+          weight="semibold"
+          label="Control sheet matrix"
+        />
+      </div>
 
-          <span className="filter-divider" aria-hidden="true">
-            |
-          </span>
+      {/* One stable body wrapper: empty state and table are both mounted and toggled with `hidden`. */}
+      <div className="flex min-w-0 flex-col gap-3">
+        <ModusWcTypography
+          hierarchy="p"
+          size="sm"
+          customClass={MUTED}
+          label={`${filteredItems.length} of ${items.length} controls shown. Press / to search.`}
+        />
 
-          <ModusWcButton
-            color={processFilter === 'all' ? 'primary' : 'tertiary'}
-            variant={processFilter === 'all' ? 'filled' : 'outlined'}
-            size="sm"
-            onButtonClick={() => setProcessFilter('all')}
-          >
-            All processes
-          </ModusWcButton>
-          <ModusWcButton
-            color={processFilter === 'Access Management' ? 'primary' : 'tertiary'}
-            variant={processFilter === 'Access Management' ? 'filled' : 'outlined'}
-            size="sm"
-            onButtonClick={() => setProcessFilter('Access Management')}
-          >
-            Access (02.05)
-          </ModusWcButton>
-          <ModusWcButton
-            color={processFilter === 'Change Management' ? 'primary' : 'tertiary'}
-            variant={processFilter === 'Change Management' ? 'filled' : 'outlined'}
-            size="sm"
-            onButtonClick={() => setProcessFilter('Change Management')}
-          >
-            Change (01.04)
-          </ModusWcButton>
-        </div>
-
-        <div className="table-actions-group">
-          <span ref={searchRef}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div ref={searchRef} className="w-full min-w-0 sm:w-80">
             <ModusWcTextInput
               size="sm"
               bordered
@@ -192,128 +257,88 @@ export default function ControlSheetTable({ items, showToast, onSelectControl })
               placeholder="Search application, control, owner, ticket…"
               value={search}
               aria-label="Search control sheet"
-              customClass="matrix-search-input"
               onInputChange={(e) => setSearch(readInputString(e))}
             />
-          </span>
+          </div>
 
-          <ModusWcButton
-            color="tertiary"
-            variant="outlined"
-            size="sm"
-            onButtonClick={handleExportCSV}
-            title="Download CSV report"
-          >
-            <ModusWcIcon name="download" size="sm" decorative />
-            Export CSV
-          </ModusWcButton>
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Ticket status filter">
+            {statusFilters.map((f) => (
+              <ModusWcChip
+                key={f.id}
+                size="sm"
+                variant={statusFilter === f.id ? 'filled' : 'outline'}
+                active={statusFilter === f.id}
+                label={f.label}
+                onChipClick={() => setStatusFilter(f.id)}
+              />
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Sub-process filter">
+            {PROCESS_FILTERS.map((f) => (
+              <ModusWcChip
+                key={f.id}
+                size="sm"
+                variant={processFilter === f.id ? 'filled' : 'outline'}
+                active={processFilter === f.id}
+                label={f.label}
+                onChipClick={() => setProcessFilter(f.id)}
+              />
+            ))}
+          </div>
+
+          <div hidden={!filtersActive}>
+            <ModusWcButton
+              size="sm"
+              color="tertiary"
+              variant="borderless"
+              onButtonClick={clearFilters}
+            >
+              <span>Clear filters</span>
+            </ModusWcButton>
+          </div>
+        </div>
+
+        <div className="min-w-0 overflow-x-auto" hidden={isEmpty}>
+          <ModusWcTable
+            caption="Control sheet matrix"
+            columns={columns}
+            data={rows}
+            density="comfortable"
+            zebra
+            hover
+            sortable
+            selectable="single"
+            selectedRowIds={selectedId ? [selectedId] : []}
+            onRowClick={handleRowClick}
+            onRowSelectionChange={handleSelectionChange}
+          />
+        </div>
+
+        <div hidden={!isEmpty}>
+          <ModusWcEmptyState
+            variant="compact"
+            illustration="selection_plus"
+            heading="No controls found"
+            subtitle="Try a different search or clear the filters."
+            actionLabel="Clear filters"
+            onActionClick={clearFilters}
+          />
         </div>
       </div>
 
-      <div className="data-table-wrapper">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '7.5rem' }}>Status</th>
-              <th>Application</th>
-              <th>Control ID</th>
-              <th>Sub-Process</th>
-              <th>Control Title</th>
-              <th>Control Owner</th>
-              <th>Ticket Number</th>
-            </tr>
-          </thead>
-          <motion.tbody
-            variants={listVariants}
-            initial="hidden"
-            animate="show"
-            key={`${statusFilter}-${processFilter}-${search}`}
-          >
-            {filteredItems.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="table-empty-cell">
-                  No controls match the selected filters or search query.
-                </td>
-              </tr>
-            ) : (
-              filteredItems.map((item, index) => {
-                const id = item.id || item['Control ID'];
-                const itemMotion = staggerItem(reduceMotion, index);
-                return (
-                  <motion.tr
-                    key={id}
-                    variants={itemMotion}
-                    className={`data-row${item.isCompleted ? ' row-completed' : ''}${
-                      selectedId === id ? ' is-selected' : ''
-                    }`}
-                    tabIndex={0}
-                    onClick={() => {
-                      setSelectedId(id);
-                      onSelectControl?.(item);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedId(id);
-                        onSelectControl?.(item);
-                      }
-                    }}
-                    style={
-                      index >= STAGGER_CAP
-                        ? undefined
-                        : { willChange: 'transform, opacity' }
-                    }
-                  >
-                    <td>
-                      <StatusChip
-                        tone={item.isCompleted ? 'ok' : 'warn'}
-                        label={item.isCompleted ? 'Ticketed' : 'Missing ticket'}
-                        compact
-                      />
-                    </td>
-                    <td>
-                      <span className="cell-app-name">
-                        {item['Application Name']}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="cell-control-id">{item['Control ID']}</span>
-                    </td>
-                    <td>
-                      <span
-                        className={
-                          item['Sub-Process'] === 'Access Management'
-                            ? 'subprocess-access'
-                            : 'subprocess-change'
-                        }
-                      >
-                        {item['Sub-Process']}
-                      </span>
-                    </td>
-                    <td className="cell-title" title={item['Control Title']}>
-                      <div className="cell-title-text">{item['Control Title']}</div>
-                    </td>
-                    <td>
-                      <span className="cell-owner-tag">{item['Control Owner']}</span>
-                    </td>
-                    <td>
-                      {item['TICKET NUMBER'] ? (
-                        <StatusChip
-                          tone="info"
-                          label={item['TICKET NUMBER']}
-                          compact
-                        />
-                      ) : (
-                        <StatusChip tone="warn" label="Missing" compact />
-                      )}
-                    </td>
-                  </motion.tr>
-                );
-              })
-            )}
-          </motion.tbody>
-        </table>
+      <div slot="actions" className="modus-wc-justify-end flex w-full flex-wrap gap-2">
+        <ModusWcButton
+          size="sm"
+          color="tertiary"
+          variant="outlined"
+          disabled={isEmpty}
+          onButtonClick={handleExportCSV}
+        >
+          <ModusWcIcon name="download-simple" version="2.0" size="xs" decorative />
+          Export CSV
+        </ModusWcButton>
       </div>
-    </div>
+    </ModusWcCard>
   );
 }

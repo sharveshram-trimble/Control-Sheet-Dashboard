@@ -1,0 +1,31 @@
+/* Checklist runs: readiness cue on each nested run card and KPI number tints. */
+
+.checklist-run.modus-wc-card {
+  border-inline-start: 3px solid transparent;
+}
+
+.checklist-run--ready.modus-wc-card {
+  border-inline-start-color: var(--modus-wc-color-primary);
+}
+
+.checklist-run--blocked.modus-wc-card {
+  border-inline-start-color: var(--modus-wc-color-warning);
+}
+
+.checklist-run--done.modus-wc-card {
+  border-inline-start-color: var(--modus-wc-color-success);
+}
+
+.checklist-run.is-selected.modus-wc-card {
+  outline: 2px solid var(--modus-wc-color-highlight-blue);
+  outline-offset: -2px;
+}
+
+.checklist-kpi--success {
+  color: var(--modus-wc-color-success);
+}
+
+/* Raw warning amber is low contrast on light surfaces; mix toward the text color. */
+.checklist-kpi--warning {
+  color: color-mix(in srgb, var(--modus-wc-color-warning) 55%, var(--modus-wc-color-base-content));
+}
