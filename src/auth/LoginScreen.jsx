@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ModusWcButton, ModusWcIcon } from '@trimble-oss/moduswebcomponents-react';
 
 export default function LoginScreen({
@@ -7,10 +8,16 @@ export default function LoginScreen({
   configured = true,
   missingHint = '',
 }) {
+  const reduceMotion = useReducedMotion();
+
   return (
     <div className="tid-login-screen">
-      <div className="tid-login-atmosphere" aria-hidden="true" />
-      <div className="tid-login-stage">
+      <motion.div
+        className="tid-login-stage"
+        initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.48, ease: [0.2, 0, 0, 1] }}
+      >
         <img
           className="tid-login-logo"
           src="/trimble-logo.png"
@@ -48,7 +55,7 @@ export default function LoginScreen({
           <ModusWcIcon name="person" size="sm" decorative />
           Sign in with Trimble ID
         </ModusWcButton>
-      </div>
+      </motion.div>
     </div>
   );
 }

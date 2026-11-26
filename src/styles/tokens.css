@@ -1,167 +1,132 @@
 /*
-  Visual token plan — Control Sheet Dashboard (Trimble ITGC)
+  ITGC Control Sheet — semantic tokens (from-scratch rebuild)
 
-  Subject: Internal ITGC control operations dashboard
-  Audience: Trimble control owners and auditors
-  Primary job: find a control → act (mail / run checklist) with clear status
+  Subject: Trimble ITGC control operations console
+  Audience: control owners + auditors
+  Job: find control → status → Run Checklist / mail / open sheet
 
-  Colours (named):
-  - ink          #252a2e  primary text
-  - slate        #6a6e79  secondary text
-  - trimble-blue #0063a3  brand / primary action
-  - connect      #00437b  deep brand / headers
-  - field        #f3f6f9  app field (cool gray-blue, not cream)
-  - signal-ok    #1e8a44 / signal-bad #da212c  status only
-
-  Type: Modus Open Sans (body + UI); same family for headings at heavier weight.
-  Tabular figures via font-variant-numeric where status/counts matter.
-  Scale: 12 / 14 / 16 / 20 / 28 (rem: 0.75 / 0.875 / 1 / 1.25 / 1.75)
-
-  Layout concept: sticky Trimble brand bar; centered work surface; checklist as
-  a sliding operations rail (not a chatbot toy).
-
-  ASCII — app shell:
-  +------------------------------------------------------+
-  | [logo] Control Sheet · ITGC              user | out  |
-  |-----------[ Overview | Matrix | Progress | Check ]---|
-  |                                                      |
-  |   dense status tables / owner columns                |
-  |                                      +-------------+ |
-  |                                      | Run checklist|
-  |                                      | transcript   |
-  |                                      +-------------+ |
-  +------------------------------------------------------+
-
-  ASCII — login (brand-first):
-  +------------------------------------------------------+
-  |########### Trimble blue field ########################|
-  |  [logo]                                              |
-  |  Control Sheet Dashboard                             |
-  |  Sign in with Trimble ID to open live ITGC controls. |
-  |  [ Sign in with Trimble ID ]                         |
-  |######################################################|
-  +------------------------------------------------------+
-
-  Principles:
-  1. Status denser than chrome — tables and OUTPUT beat decorative cards.
-  2. One bold audit action — Run Checklist is the accent; chrome stays quiet.
-  3. Agent reply is a readable work transcript, not chatbot candy.
-
-  Anti-defaults check: avoided purple gradients, cream+terracotta, broadsheet
-  rules, Inter/Roboto-only stacks, emoji ornamentation, glow piles.
-
-  --- Phase A addendum (HCI + motion) ---
-  Journey: sign in → scan % ticketed → open control / mail / Run Checklist →
-  OUTPUT feedback. States: loading (skeleton), empty (next action), ready,
-  sync-error (retry), checklist pending/disabled, permission-denied (login).
-
-  Motion personality: Corporate + thin Premium on first entrance only.
-  Signature easing: cubic-bezier(0.2, 0, 0, 1)
-  Durations: 150 / 250–320 / 400–500ms · stagger 50ms
-  Properties: opacity + translateY only; reduced-motion → opacity instant.
-
-  ASCII first viewport:
-  +----------------------------------------------------------+
-  | logo  Control Sheet · ITGC     [tabs]     sync · user    |
-  |======= status rail (% + 4 KPIs) =========================|
-  |  owners / matrix / progress / checklist (one primary)     |
-  |                                       [checklist rail→]  |
-  +----------------------------------------------------------+
-
-  Remove: soft multi-shadow card farm, purple accents, bounce easing,
-  decorative icon bubbles, equal-weight KPI chrome.
+  Dark Trimble strip + blue-mist canvas + dense white work surface.
+  Yellow reserved for Run Checklist CTA (+ warning).
 */
 
 :root {
-  --ink: var(--modus-wc-color-base-content, #252a2e);
-  --slate: var(--modus-wc-color-gray-6, #6a6e79);
-  --trimble-blue: var(--modus-wc-color-trimble-blue, #0063a3);
-  --connect: var(--modus-wc-color-connect-blue, #00437b);
-  --field: #f3f6f9;
-  --trimble-yellow: var(--modus-wc-color-trimble-yellow, #fbad26);
-  --signal-ok: var(--modus-wc-color-green, #1e8a44);
-  --signal-bad: var(--modus-wc-color-red, #da212c);
+  /* Brand */
+  --brand-blue: #0063a3;
+  --brand-blue-dark: #004f83;
+  --brand-blue-deeper: #0e416c;
+  --brand-blue-light: #217cbb;
+  --brand-blue-pale: #dcedf9;
+  --brand-blue-mist: #f0f7fc;
+  --brand-yellow: #fbad26;
+  --brand-yellow-dark: #e49325;
+  --brand-yellow-pale: #fff5e4;
 
-  --primary-blue: var(--trimble-blue);
-  --primary-dark: var(--connect);
-  --primary-deep: var(--modus-wc-color-blue-dark, #0e416c);
-  --primary-light: var(--modus-wc-color-blue-light, #217cbb);
-  --accent-cyan: var(--modus-wc-color-highlight-blue, #019aeb);
-  --accent-sky: var(--accent-cyan);
-  --accent-glow: rgba(0, 99, 163, 0.12);
-  --accent-glow-strong: rgba(0, 99, 163, 0.22);
+  /* Neutrals (steel) */
+  --ink: #171c1e;
+  --ink-secondary: #353a40;
+  --slate: #585c65;
+  --muted: #6a6e79;
+  --line: #e0e1e9;
+  --line-strong: #cbcdd6;
+  --surface: #ffffff;
+  --surface-2: #f1f1f6;
+  --surface-3: #e9eaf0;
 
-  --bg-app: var(--field);
-  --bg-gradient: var(--field);
-  --bg-card: var(--modus-wc-color-base-100, #ffffff);
-  --bg-card-hover: var(--modus-wc-color-base-100, #ffffff);
-  --bg-subtle: var(--modus-wc-color-gray-01, #f5f5f8);
-  --bg-blue-tint: var(--modus-wc-color-blue-pale, #dcedf9);
-  --bg-blue-subtle: rgba(0, 99, 163, 0.05);
-  --bg-glass: rgba(255, 255, 255, 0.92);
+  /* Status */
+  --ok: #1e8a44;
+  --ok-bg: #e0eccf;
+  --bad: #da212c;
+  --bad-bg: #fbd4d7;
+  --warn: #e49325;
+  --warn-bg: #fff5e4;
+  --info: #004f83;
+  --info-bg: #dcedf9;
+  --focus: #019aeb;
 
+  /* Atmosphere */
+  --canvas:
+    radial-gradient(1200px 600px at 0% -10%, rgba(0, 99, 163, 0.1), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(33, 124, 187, 0.08), transparent 50%),
+    var(--brand-blue-mist);
+  --nav-glass: color-mix(in srgb, #0e416c 92%, transparent);
+  --panel-shadow: 0 1px 0 rgba(14, 65, 108, 0.06), 0 12px 32px -16px rgba(14, 65, 108, 0.18);
+  --accent-sheen: linear-gradient(135deg, #0063a3 0%, #217cbb 45%, #004f83 100%);
+  --cta-sheen: linear-gradient(135deg, #fbad26 0%, #e49325 100%);
+
+  /* Type */
   --font-main: var(--modus-wc-font-family, "Open Sans", system-ui, sans-serif);
   --font-heading: var(--font-main);
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --type-2xs: 0.6875rem; /* 11 */
+  --type-xs: 0.75rem; /* 12 */
+  --type-sm: 0.8125rem; /* 13 */
+  --type-md: 0.875rem; /* 14 */
+  --type-lg: 1rem; /* 16 */
+  --type-xl: 1.25rem; /* 20 */
+  --type-2xl: 1.75rem; /* 28 */
+  --type-3xl: 2.25rem; /* 36 */
 
-  --text-primary: var(--ink);
-  --text-secondary: var(--modus-wc-color-gray-8, #464b52);
-  --text-muted: var(--slate);
-  --text-faint: var(--modus-wc-color-gray-4, #90939f);
-  --text-white: var(--modus-wc-color-white, #ffffff);
-  --text-blue: var(--trimble-blue);
-
-  --border-light: var(--modus-wc-color-gray-0, #e0e1e9);
-  --border-subtle: var(--modus-wc-color-gray-02, #e9eaf0);
-  --border-medium: var(--modus-wc-color-gray-1, #cbcdd6);
-  --border-blue: var(--modus-wc-color-blue-pale, #dcedf9);
-  --border-blue-dark: var(--modus-wc-color-blue-light, #217cbb);
-
-  --success: var(--signal-ok);
-  --success-bg: var(--modus-wc-color-green-pale, #e0eccf);
-  --success-border: var(--modus-wc-color-green-light, #4ea646);
-  --success-text: var(--modus-wc-color-green-dark, #006638);
-
-  --warning: var(--modus-wc-color-yellow-dark, #e49325);
-  --warning-bg: var(--modus-wc-color-yellow-pale, #fff5e4);
-  --warning-border: var(--modus-wc-color-yellow-light, #fec157);
-  --warning-text: var(--modus-wc-color-yellow-dark, #e49325);
-
-  --danger: var(--signal-bad);
-  --danger-bg: var(--modus-wc-color-red-pale, #fbd4d7);
-  --danger-border: var(--modus-wc-color-red-light, #e86363);
-  --danger-text: var(--modus-wc-color-red-dark, #ab1f26);
-
-  --info: var(--modus-wc-color-info-blue, #004f83);
-  --info-bg: var(--modus-wc-color-blue-pale, #dcedf9);
-  --info-border: var(--modus-wc-color-blue-light, #217cbb);
-  --info-text: var(--modus-wc-color-info-blue, #004f83);
-
-  --shadow-xs: 0 1px 2px rgba(14, 65, 108, 0.04);
-  --shadow-sm: 0 1px 3px rgba(14, 65, 108, 0.06), 0 1px 2px rgba(14, 65, 108, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(14, 65, 108, 0.07), 0 2px 4px -2px rgba(14, 65, 108, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(14, 65, 108, 0.08), 0 4px 6px -4px rgba(14, 65, 108, 0.04);
-  --shadow-xl: 0 20px 25px -5px rgba(14, 65, 108, 0.1), 0 8px 10px -6px rgba(14, 65, 108, 0.04);
-  --shadow-blue: 0 12px 28px -8px rgba(0, 99, 163, 0.28);
-
+  /* Motion */
   --ease-brand: cubic-bezier(0.2, 0, 0, 1);
-  --transition-fast: 150ms var(--ease-brand);
-  --transition-normal: 250ms var(--ease-brand);
-  --transition-panel: 320ms var(--ease-brand);
-  --transition-enter: 420ms var(--ease-brand);
-  --stagger-step: 50ms;
-  --motion-distance: 10px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 8px;
-  --radius-full: 9999px;
+  --t-micro: 120ms var(--ease-brand);
+  --t-ui: 220ms var(--ease-brand);
+  --t-panel: 320ms var(--ease-brand);
+  --t-enter: 480ms var(--ease-brand);
+  --stagger: 48ms;
+  --motion-y: 10px;
 
-  --type-xs: 0.75rem;
-  --type-sm: 0.875rem;
-  --type-md: 1rem;
-  --type-lg: 1.25rem;
-  --type-xl: 1.75rem;
-
+  /* Shape / elevation */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
   --focus-ring: 0 0 0 3px rgba(1, 154, 235, 0.45);
+
+  /* Compat aliases used by residual Modus wiring */
+  --trimble-blue: var(--brand-blue);
+  --trimble-yellow: var(--brand-yellow);
+  --connect: var(--brand-blue-dark);
+  --primary-blue: var(--brand-blue);
+  --primary-dark: var(--brand-blue-dark);
+  --primary-deep: var(--brand-blue-deeper);
+  --primary-light: var(--brand-blue-light);
+  --field: var(--brand-blue-mist);
+  --bg-app: var(--brand-blue-mist);
+  --bg-card: var(--surface);
+  --bg-subtle: var(--surface-2);
+  --bg-blue-tint: var(--brand-blue-pale);
+  --text-primary: var(--ink);
+  --text-secondary: var(--ink-secondary);
+  --text-muted: var(--slate);
+  --text-faint: var(--muted);
+  --text-white: #ffffff;
+  --border-light: var(--line);
+  --border-subtle: var(--surface-3);
+  --border-medium: var(--line-strong);
+  --success: var(--ok);
+  --success-bg: var(--ok-bg);
+  --success-text: #006638;
+  --success-border: #4ea646;
+  --warning: var(--warn);
+  --warning-bg: var(--warn-bg);
+  --warning-text: var(--brand-yellow-dark);
+  --warning-border: #fec157;
+  --danger: var(--bad);
+  --danger-bg: var(--bad-bg);
+  --danger-text: #ab1f26;
+  --danger-border: #e86363;
+  --signal-ok: var(--ok);
+  --signal-bad: var(--bad);
+  --accent-cyan: var(--focus);
+  --transition-fast: var(--t-micro);
+  --transition-normal: var(--t-ui);
+  --transition-panel: var(--t-panel);
+  --transition-enter: var(--t-enter);
+  --stagger-step: var(--stagger);
+  --motion-distance: var(--motion-y);
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-lg);
+  --shadow-sm: var(--panel-shadow);
+  --shadow-md: var(--panel-shadow);
+  --shadow-lg: var(--panel-shadow);
 }

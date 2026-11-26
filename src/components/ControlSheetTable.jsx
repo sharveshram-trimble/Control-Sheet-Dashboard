@@ -7,7 +7,7 @@ import {
 } from '@trimble-oss/moduswebcomponents-react';
 import { readInputString } from '../utils/modusFormEvents';
 
-export default function ControlSheetTable({ items, showToast }) {
+export default function ControlSheetTable({ items, showToast, onSelectControl }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [processFilter, setProcessFilter] = useState('all');
@@ -169,7 +169,15 @@ export default function ControlSheetTable({ items, showToast }) {
               filteredItems.map((item) => (
                 <tr
                   key={item.id}
-                  className={item.isCompleted ? 'row-completed' : ''}
+                  className={`data-row${item.isCompleted ? ' row-completed' : ''}`}
+                  tabIndex={0}
+                  onClick={() => onSelectControl?.(item)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectControl?.(item);
+                    }
+                  }}
                 >
                   <td>
                     {item.isCompleted ? (

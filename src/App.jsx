@@ -38,6 +38,7 @@ export default function App() {
     isUiPreview ? new Date() : null
   );
   const [syncError, setSyncError] = useState(null);
+  const [successPulse, setSuccessPulse] = useState(false);
   const syncInFlightRef = useRef(false);
   const itemsLengthRef = useRef(items.length);
 
@@ -81,6 +82,10 @@ export default function App() {
           };
         })
       );
+      if (status === 'success') {
+        setSuccessPulse(true);
+        window.setTimeout(() => setSuccessPulse(false), 520);
+      }
       showToast(
         status === 'success'
           ? `Checklist Success${summary ? ` — ${summary}` : ''}`
@@ -284,7 +289,10 @@ export default function App() {
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className="app-container">
+    <div className={`app-container${successPulse ? ' success-pulse-host' : ''}`}>
+      {successPulse ? (
+        <span className="success-pulse success-pulse--global" aria-hidden="true" />
+      ) : null}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}

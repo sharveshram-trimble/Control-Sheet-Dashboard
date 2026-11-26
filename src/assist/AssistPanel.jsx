@@ -780,7 +780,7 @@ export default function AssistPanel({
           variant="filled"
           color="primary"
           size="sm"
-          customClass="run-checklist-btn"
+          customClass="run-checklist-btn cta-sheen ripple-host"
           disabled={!canRunChecklist || needsAssistReauth || agentRunning}
           onButtonClick={() => {
             void startAudit();

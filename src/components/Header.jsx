@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion, useReducedMotion, useScroll, useSpring } from 'framer-motion';
 import {
   ModusWcButton,
   ModusWcIcon,
@@ -17,6 +18,20 @@ export default function Header({
   onRetrySync,
 }) {
   const { user, logout } = useAuth();
+  const reduceMotion = useReducedMotion();
+  const { scrollYProgress } = useScroll();
+  const progressX = useSpring(scrollYProgress, {
+    stiffness: 140,
+    damping: 28,
+    mass: 0.35,
+  });
+  const [booted, setBooted] = useState(false);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setBooted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   const tabs = useMemo(
     () => [
       { label: 'Overview', icon: 'dashboard', iconPosition: 'left' },
@@ -41,8 +56,21 @@ export default function Header({
           : 'Waiting for sheet';
 
   return (
-    <header className="top-nav">
-      <div className="nav-content">
+    <motion.header
+      className="top-nav"
+      initial={reduceMotion ? false : { opacity: 0, y: -8 }}
+      animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+      transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
+    >
+      {!reduceMotion ? (
+        <motion.div
+          className="nav-scroll-progress"
+          style={{ scaleX: progressX }}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <div className="nav-brand-row">
         <div className="brand-section">
           <img
             className="brand-logo"
@@ -56,24 +84,6 @@ export default function Header({
             <h1 className="brand-title">Control Sheet Dashboard</h1>
           </div>
         </div>
-
-        <nav className="nav-center-tabs" aria-label="Dashboard views">
-          <ModusWcTabs
-            aria-label="Dashboard views"
-            size="sm"
-            tabStyle="boxed"
-            tabs={tabs}
-            activeTabIndex={activeTabIndex}
-            onTabChange={(e) => {
-              const idx =
-                e?.detail?.newTab ??
-                e?.detail?.detail?.newTab ??
-                e?.newTab ??
-                0;
-              setActiveTab(TAB_KEYS[Number(idx)] || 'overview');
-            }}
-          />
-        </nav>
 
         <div className="nav-actions">
           <div
@@ -113,6 +123,26 @@ export default function Header({
           </ModusWcButton>
         </div>
       </div>
-    </header>
+
+      <div className="nav-subnav">
+        <nav className="nav-center-tabs" aria-label="Dashboard views">
+          <ModusWcTabs
+            aria-label="Dashboard views"
+            size="sm"
+            tabStyle="boxed"
+            tabs={tabs}
+            activeTabIndex={activeTabIndex}
+            onTabChange={(e) => {
+              const idx =
+                e?.detail?.newTab ??
+                e?.detail?.detail?.newTab ??
+                e?.newTab ??
+                0;
+              setActiveTab(TAB_KEYS[Number(idx)] || 'overview');
+            }}
+          />
+        </nav>
+      </div>
+    </motion.header>
   );
 }

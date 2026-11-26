@@ -84,26 +84,30 @@ function SheetLink({ value, missingLabel, openLabel }) {
 }
 
 function OutputChip({ status }) {
-  if (status === 'success') {
-    return (
-      <span className="output-chip output-chip--ok">
-        <ModusWcIcon name="check_circle" size="xs" decorative />
-        Success
-      </span>
-    );
-  }
-  if (status === 'failed') {
-    return (
-      <span className="output-chip output-chip--bad">
-        <ModusWcIcon name="warning" size="xs" decorative />
-        Failed
-      </span>
-    );
-  }
+  const reduceMotion = useReducedMotion();
+  const chip =
+    status === 'success'
+      ? { className: 'output-chip output-chip--ok', icon: 'check_circle', label: 'Success' }
+      : status === 'failed'
+        ? { className: 'output-chip output-chip--bad', icon: 'warning', label: 'Failed' }
+        : {
+            className: 'output-chip output-chip--idle',
+            icon: null,
+            label: 'Pending',
+          };
+
   return (
-    <span className="output-chip output-chip--idle" aria-label="Output pending">
-      Pending
-    </span>
+    <motion.span
+      key={chip.label}
+      className={chip.className}
+      aria-label={status ? undefined : 'Output pending'}
+      initial={reduceMotion ? false : { scale: 0.96, opacity: 0.7 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ duration: 0.22, ease: easeBrand }}
+    >
+      {chip.icon ? <ModusWcIcon name={chip.icon} size="xs" decorative /> : null}
+      {chip.label}
+    </motion.span>
   );
 }
 
@@ -414,7 +418,7 @@ export default function ChecklistView({
                         variant="filled"
                         color="primary"
                         size="sm"
-                        customClass="run-checklist-btn"
+                        customClass="run-checklist-btn cta-sheen ripple-host"
                         disabled={!readiness.canRun}
                         aria-label={`Run checklist for ${item['Control ID']}`}
                         onButtonClick={() => openChecklist(item)}
@@ -436,10 +440,14 @@ export default function ChecklistView({
           <motion.div
             key="assist-rail"
             className="checklist-assist-slot"
-            initial={reduceMotion ? false : { opacity: 0, x: 24 }}
+            initial={reduceMotion ? false : { opacity: 0, x: 36 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 }}
-            transition={{ duration: 0.38, ease: easeBrand }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 36 }}
+            transition={
+              reduceMotion
+                ? { duration: 0.15 }
+                : { type: 'spring', stiffness: 320, damping: 28 }
+            }
           >
             <AssistPanel
               open={assistOpen}
